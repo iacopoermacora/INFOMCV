@@ -41,26 +41,32 @@ criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 # prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
 objp = np.zeros((width*height,3), np.float32)
 objp[:,:2] = np.mgrid[0:height,0:width].T.reshape(-1,2)
+print("objp:", objp)
 # Arrays to store object points and image points from all the images.
 objpoints = [] # 3d point in real world space
 imgpoints = [] # 2d points in image plane.
-images = glob.glob('*.JPG')
+images = glob.glob('*.png')
 for fname in images:
     img = cv.imread(fname)
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
     # Find the chess board corners
-    ret, corners = cv.findChessboardCorners(gray, (height,width), None)
+    ret, corners = cv.findChessboardCorners(gray, (height+1,width+1), None)
     # ret = False
     # If found, add object points, image points (after refining them)
     if ret == True:
+        print("objp:", objp)
+        print("test")
         objpoints.append(objp)
         corners2 = cv.cornerSubPix(gray,corners, (11,11), (-1,-1), criteria)
         imgpoints.append(corners2)
+        print("corners auto:", corners2)
         # Draw and display the corners
         cv.drawChessboardCorners(img, (9,6), corners2, ret)
         cv.imshow('img', img)
-        cv.waitKey(0)
-    else:
+        cv.waitKey(50)
+        
+    # else:
+    if ret == True:
         print("Manual corners:")
         print("Select 4 corners in the image in the order: top-left, top-right, bottom-right, bottom-left")
         input("Press Enter to continue...")
@@ -102,7 +108,7 @@ for fname in images:
 
         # Generate grid coordinates
         index = 0
-        for i in range(height+1):
+        for i in range(height, -1, -1):
             for j in range(width+1):
                 x = j * width_warp/width
                 y = i * height_warp/height
@@ -112,6 +118,12 @@ for fname in images:
         Minv = cv.invert(matrix)[1]
         original_points = cv.perspectiveTransform(grid_points.reshape(-1, 1, 2), Minv)
         
+        objpoints.append(objp)
+        corners2 = cv.cornerSubPix(gray, original_points, (11,11), (-1,-1), criteria)
+        imgpoints.append(corners2)
+
+        print("corners manual:", original_points)
+
         cv.namedWindow('img', cv.WINDOW_NORMAL)
         cv.drawChessboardCorners(img, (9,6), original_points, True)
         cv.imshow('img', img)
