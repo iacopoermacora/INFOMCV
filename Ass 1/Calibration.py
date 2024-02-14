@@ -50,23 +50,22 @@ for fname in images:
     img = cv.imread(fname)
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
     # Find the chess board corners
-    ret, corners = cv.findChessboardCorners(gray, (height+1,width+1), None)
-    # ret = False
+    # ret, corners = cv.findChessboardCorners(gray, (height+1,width+1), None)
+    ret = False
     # If found, add object points, image points (after refining them)
     if ret == True:
         print("objp:", objp)
         print("test")
         objpoints.append(objp)
-        corners2 = cv.cornerSubPix(gray,corners, (11,11), (-1,-1), criteria)
+        corners2 = cv.cornerSubPix(gray, corners, (11,11), (-1,-1), criteria)
         imgpoints.append(corners2)
         print("corners auto:", corners2)
         # Draw and display the corners
+        cv.namedWindow('img', cv.WINDOW_NORMAL)
         cv.drawChessboardCorners(img, (9,6), corners2, ret)
         cv.imshow('img', img)
-        cv.waitKey(50)
-        
-    # else:
-    if ret == True:
+        cv.waitKey(0)    
+    else:
         print("Manual corners:")
         print("Select 4 corners in the image in the order: top-left, top-right, bottom-right, bottom-left")
         input("Press Enter to continue...")
@@ -108,8 +107,8 @@ for fname in images:
 
         # Generate grid coordinates
         index = 0
-        for i in range(height, -1, -1):
-            for j in range(width+1):
+        for j in range(width+1):
+            for i in range(height, -1, -1):
                 x = j * width_warp/width
                 y = i * height_warp/height
                 grid_points[index] = (x, y)  # Adjust 100 according to your grid spacing
