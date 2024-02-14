@@ -8,13 +8,29 @@ click = 0
 def click_event(event, x, y, flags, params): 
     global click
     global manual_coordinates
+    global img
 
     # Checking for left mouse clicks 
     if event == cv.EVENT_LBUTTONDOWN: 
         if click < 4:  # Ensure only 4 points are selected
             manual_coordinates[click] = (x, y)
             click += 1
+            cv.circle(img, (x, y), 10, (0, 0, 255), -1)
+            cv.imshow('img', img)
             print("Corner found at: ", x, y)
+        if click == 4:
+            # font 
+            font = cv.FONT_HERSHEY_SIMPLEX 
+            # org 
+            org = (100, 500) 
+            # fontScale 
+            fontScale = 3
+            # Blue color in BGR 
+            color = (255, 0, 0) 
+            # Line thickness of 2 px 
+            thickness = 10
+            cv.putText(img, 'Press any key to find all chessboard corners', org, font, fontScale, color, thickness, cv.LINE_AA)
+            cv.imshow('img', img)
 
 # Define the width and height of the chessboard (in squares)
 width = 5
@@ -34,6 +50,7 @@ for fname in images:
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
     # Find the chess board corners
     ret, corners = cv.findChessboardCorners(gray, (height,width), None)
+    # ret = False
     # If found, add object points, image points (after refining them)
     if ret == True:
         objpoints.append(objp)
@@ -45,6 +62,8 @@ for fname in images:
         cv.waitKey(0)
     else:
         print("Manual corners:")
+        print("Select 4 corners in the image in the order: top-left, top-right, bottom-right, bottom-left")
+        input("Press Enter to continue...")
         # Setting mouse handler for the image 
         cv.namedWindow('img', cv.WINDOW_NORMAL)
         cv.imshow('img', img)
