@@ -29,6 +29,12 @@ def click_event(event, x, y, flags, params):
             cv.putText(img, 'Press any key to find all chessboard corners', org, font, fontScale, color, thickness, cv.LINE_AA)
             cv.imshow('img', img)
 
+def draw(img, corners, imgpts):
+    corner = tuple(corners[0].ravel())
+    img = cv.line(img, corner, tuple(imgpts[0].ravel()), (255,0,0), 5)
+    img = cv.line(img, corner, tuple(imgpts[1].ravel()), (0,255,0), 5)
+    img = cv.line(img, corner, tuple(imgpts[2].ravel()), (0,0,255), 5)
+    return img
 
 # Define the width and height of the internal chessboard (in squares)
 width = 5
@@ -146,12 +152,35 @@ for images_name in images_names:
            image_size = gray.shape[::-1] 
         
     if image_size is not None:
-       ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, image_size, None, None)
+        ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, image_size, None, None)
     
-       ret_list.append(ret)
-       mtx_list.append(mtx)
-       dist_list.append(dist)
-       rvecs_list.append(rvecs)
-       tvecs_list.append(tvecs)
+        criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+        objp = np.zeros(((width+1)*(height+1),3), np.float32)
+        objp[:,:2] = np.mgrid[0:(height+1),0:(width+1)].T.reshape(-1,2) * square_size
+        axis = np.float32([[3,0,0], [0,3,0], [0,0,-3]]).reshape(-1,3)
+
+        for fname in glob.glob('Chessboard_9_more_selected.jpg'):
+            img = cv.imread(fname)
+            gray = cv.cvtColor(img,cv.COLOR_BGR2GRAY)
+            ret, corners = cv.findChessboardCorners(gray, (height+1,width+1), None, cv.CALIB_CB_FAST_CHECK)
+            if ret == True:
+                corners2 = cv.cornerSubPix(gray,corners,(11,11),(-1,-1),criteria)
+                # Find the rotation and translation vectors.
+                ret,rvecs, tvecs = cv.solvePnP(objp, corners2, mtx, dist)
+                # project 3D points to image plane
+                imgpts, jac = cv.projectPoints(axis, rvecs, tvecs, mtx, dist)
+                img = draw(img,corners2,imgpts)
+                print("GETS HERE")
+                cv.imshow('img',img)
+                k = cv.waitKey(0) & 0xFF
+                if k == ord('s'):
+                    cv.imwrite(fname[:6]+'.png', img)
+            cv.destroyAllWindows()
+
+        ret_list.append(ret)
+        mtx_list.append(mtx)
+        dist_list.append(dist)
+        rvecs_list.append(rvecs)
+        tvecs_list.append(tvecs)
 
 cv.destroyAllWindows()
