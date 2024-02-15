@@ -76,7 +76,8 @@ def draw_cube(img, imgpts_cube, color=(0, 255, 0), thickness=3):
 
     return img
 
-use_webcam = True
+use_webcam = False
+error_threshold = 0.1
 
 # Define the width and height of the internal chessboard (in squares)
 width = 5
@@ -92,7 +93,7 @@ dist_list = []
 rvecs_list = []
 tvecs_list = []
 
-images_names = ['*_selected.jpg', '*_more_selected.jpg'] # '*.jpg'
+images_names = ['*_selected.jpg'] # '*.jpg', '*_more_selected.jpg'
 for images_name in images_names:
     images = glob.glob(images_name)
     print(images_name)
@@ -195,7 +196,51 @@ for images_name in images_names:
         
     if image_size is not None:
         ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, image_size, None, None)
-    
+
+        # Calculate re-projection errors
+        mean_error = 0
+        for i in range(len(objpoints)):
+            imgpoints2, _ = cv.projectPoints(objpoints[i], rvecs[i], tvecs[i], mtx, dist)
+            error = cv.norm(imgpoints[i], imgpoints2, cv.NORM_L2) / len(imgpoints2)
+            mean_error += error
+
+        mean_error /= len(objpoints)
+        print(f"Total error: {mean_error}")
+
+        # Iterate to reject low-quality images
+        while mean_error > error_threshold and len(objpoints) > 0:
+            max_error_idx = -1
+            max_error_value = 0
+
+            # Find the image with the highest error
+            for i in range(len(objpoints)):
+                imgpoints2, _ = cv.projectPoints(objpoints[i], rvecs[i], tvecs[i], mtx, dist)
+                error = cv.norm(imgpoints[i], imgpoints2, cv.NORM_L2) / len(imgpoints2)
+                if error > max_error_value:
+                    max_error_value = error
+                    max_error_idx = i
+            
+            # If the worst image is above the threshold, remove it
+            if max_error_value > error_threshold:
+                print(f"Rejecting image with error {max_error_value}")
+                objpoints.pop(max_error_idx)
+                imgpoints.pop(max_error_idx)
+                # Re-calibrate without the worst image
+                ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, image_size, None, None)
+
+                # Recalculate mean error
+                mean_error = 0
+                for i in range(len(objpoints)):
+                    imgpoints2, _ = cv.projectPoints(objpoints[i], rvecs[i], tvecs[i], mtx, dist)
+                    error = cv.norm(imgpoints[i], imgpoints2, cv.NORM_L2) / len(imgpoints2)
+                    mean_error += error
+
+                mean_error /= len(objpoints)
+                print(f"Total error after rejection: {mean_error}")
+            else:
+                break  # No more images to reject
+
+
         criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
         objp = np.zeros(((width+1)*(height+1),3), np.float32)
         objp[:,:2] = np.mgrid[0:(height+1),0:(width+1)].T.reshape(-1,2) # * square_size
@@ -226,7 +271,7 @@ for images_name in images_names:
             cap.release()
         else:
             # When using static images
-            for fname in glob.glob('Chessboard_20_test_more_selected.jpg'):
+            for fname in glob.glob('Chessboard_6.jpg'):
                 img = cv.imread(fname)
                 img = process_frame(img, objp, criteria, mtx, dist, axis, cube_points)
                 cv.namedWindow('img', cv.WINDOW_NORMAL)
