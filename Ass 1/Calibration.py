@@ -32,41 +32,41 @@ def click_event(event, x, y, flags, params):
             cv.putText(img, 'Press any key to find all chessboard corners', org, font, fontScale, color, thickness, cv.LINE_AA)
             cv.imshow('img', img)
 
-# Define the width and height of the chessboard (in squares)
+# Define the width and height of the internal chessboard (in squares)
 width = 5
 height = 8
 
 # termination criteria
 criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 # prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
-objp = np.zeros((width*height,3), np.float32)
-objp[:,:2] = np.mgrid[0:height,0:width].T.reshape(-1,2)
-print("objp:", objp)
+square_size = 0.022
+objp = np.zeros(((width+1)*(height+1),3), np.float32)
+objp[:,:2] = np.mgrid[0:(height+1),0:(width+1)].T.reshape(-1,2) * square_size
 # Arrays to store object points and image points from all the images.
 objpoints = [] # 3d point in real world space
 imgpoints = [] # 2d points in image plane.
-images = glob.glob('*.png')
+images = glob.glob('*.jpg')
 for fname in images:
+    print(fname)
     img = cv.imread(fname)
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
     # Find the chess board corners
-    # ret, corners = cv.findChessboardCorners(gray, (height+1,width+1), None)
-    ret = False
+    ret, corners = cv.findChessboardCorners(gray, (height+1,width+1), None, cv.CALIB_CB_FAST_CHECK)
+    # ret = False
     # If found, add object points, image points (after refining them)
     if ret == True:
-        print("objp:", objp)
-        print("test")
+        print("Auto corners: ", fname)
         objpoints.append(objp)
         corners2 = cv.cornerSubPix(gray, corners, (11,11), (-1,-1), criteria)
         imgpoints.append(corners2)
-        print("corners auto:", corners2)
         # Draw and display the corners
         cv.namedWindow('img', cv.WINDOW_NORMAL)
         cv.drawChessboardCorners(img, (9,6), corners2, ret)
         cv.imshow('img', img)
-        cv.waitKey(0)    
+        cv.waitKey(1000)
+        cv.destroyAllWindows()
     else:
-        print("Manual corners:")
+        print("Manual corners: ", fname)
         print("Select 4 corners in the image in the order: top-left, top-right, bottom-right, bottom-left")
         input("Press Enter to continue...")
         # Setting mouse handler for the image 
@@ -121,15 +121,16 @@ for fname in images:
         corners2 = cv.cornerSubPix(gray, original_points, (11,11), (-1,-1), criteria)
         imgpoints.append(corners2)
 
-        print("corners manual:", original_points)
-
         cv.namedWindow('img', cv.WINDOW_NORMAL)
         cv.drawChessboardCorners(img, (9,6), original_points, True)
         cv.imshow('img', img)
-        cv.waitKey(0)
+        cv.waitKey(1000)
+        cv.destroyAllWindows()
 
         # Reset click count and manual_coordinates for the next image
         click = 0
         manual_coordinates = np.zeros((4, 2), dtype=np.float32)
+    
+ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
 
 cv.destroyAllWindows()
