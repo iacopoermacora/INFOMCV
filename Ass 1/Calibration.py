@@ -31,6 +31,20 @@ def click_event(event, x, y, flags, params):
             cv.namedWindow('img', cv.WINDOW_NORMAL)
             cv.imshow('img', img)
 
+def process_frame(img, objp, criteria, mtx, dist, axis, cube_points):
+    gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+    ret, corners = cv.findChessboardCorners(gray, (height+1,width+1), None, cv.CALIB_CB_FAST_CHECK)
+    if ret:
+        corners2 = cv.cornerSubPix(gray, corners, (11,11), (-1,-1), criteria)
+        # Find the rotation and translation vectors.
+        ret, rvecs, tvecs = cv.solvePnP(objp, corners2, mtx, dist)
+        imgpts, jac = cv.projectPoints(axis, rvecs, tvecs, mtx, dist)
+        imgpts_cube, jac = cv.projectPoints(cube_points, rvecs, tvecs, mtx, dist)
+        img = draw(img, corners2, imgpts)
+        img = draw_cube(img, imgpts_cube, color=(255, 255, 0), thickness=3)
+    return img
+
+
 def draw(img, corners, imgpts):
     def tupleOfInts(arr):
         return tuple(int(x) for x in arr)
@@ -61,6 +75,8 @@ def draw_cube(img, imgpts_cube, color=(0, 255, 0), thickness=3):
         img = cv.line(img, tuple(imgpts_cube[i]), tuple(imgpts_cube[i + 4]), color, thickness)
 
     return img
+
+use_webcam = True
 
 # Define the width and height of the internal chessboard (in squares)
 width = 5
@@ -189,25 +205,36 @@ for images_name in images_names:
         [0, 0, 0], [0, cube_size, 0], [cube_size, cube_size, 0], [cube_size, 0, 0],
         [0, 0, -cube_size], [0, cube_size, -cube_size], [cube_size, cube_size, -cube_size], [cube_size, 0, -cube_size]
         ])
-        for fname in glob.glob('Chessboard_20_test_more_selected.jpg'):
-            img = cv.imread(fname)
-            gray = cv.cvtColor(img,cv.COLOR_BGR2GRAY)
-            ret, corners = cv.findChessboardCorners(gray, (height+1,width+1), None, cv.CALIB_CB_FAST_CHECK)
-            if ret == True:
-                corners2 = cv.cornerSubPix(gray,corners,(11,11),(-1,-1),criteria)
-                # Find the rotation and translation vectors.
-                ret,rvecs, tvecs = cv.solvePnP(objp, corners2, mtx, dist)
-                imgpts_cube, _ = cv.projectPoints(cube_points, rvecs, tvecs, mtx, dist)
-                # project 3D points to image plane
-                imgpts, jac = cv.projectPoints(axis, rvecs, tvecs, mtx, dist)
-                img = draw(img, corners2, imgpts)
-                img = draw_cube(img, imgpts_cube, color=(255, 255, 0), thickness=3)
+
+        # Main processing loop
+        if use_webcam:
+            # When using the webcam
+            cap = cv.VideoCapture(0)
+            if not cap.isOpened():
+                print("Cannot open camera")
+                exit()
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    print("Can't receive frame (stream end?). Exiting ...")
+                    break
+                # Process the captured frame
+                frame = process_frame(frame, objp, criteria, mtx, dist, axis, cube_points)
+                cv.imshow('Webcam', frame)
+                if cv.waitKey(1) == ord('q'):
+                    break
+            cap.release()
+        else:
+            # When using static images
+            for fname in glob.glob('Chessboard_20_test_more_selected.jpg'):
+                img = cv.imread(fname)
+                img = process_frame(img, objp, criteria, mtx, dist, axis, cube_points)
                 cv.namedWindow('img', cv.WINDOW_NORMAL)
-                cv.imshow('img',img)
+                cv.imshow('img', img)
                 k = cv.waitKey(0) & 0xFF
                 if k == ord('s'):
                     cv.imwrite(fname[:6]+'.png', img)
-            cv.destroyAllWindows()
+                cv.destroyAllWindows()
 
         ret_list.append(ret)
         mtx_list.append(mtx)
