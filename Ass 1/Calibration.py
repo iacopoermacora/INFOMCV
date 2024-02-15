@@ -13,6 +13,7 @@ def click_event(event, x, y, flags, params):
             manual_coordinates[click] = (x, y)
             click += 1
             cv.circle(img, (x, y), 10, (0, 0, 255), -1)
+            cv.namedWindow('img', cv.WINDOW_NORMAL)
             cv.imshow('img', img)
             print("Corner found at: ", x, y)
         if click == 4:
@@ -27,13 +28,27 @@ def click_event(event, x, y, flags, params):
             # Line thickness of 2 px 
             thickness = 10
             cv.putText(img, 'Press any key to find all chessboard corners', org, font, fontScale, color, thickness, cv.LINE_AA)
+            cv.namedWindow('img', cv.WINDOW_NORMAL)
             cv.imshow('img', img)
 
 def draw(img, corners, imgpts):
-    corner = tuple(corners[0].ravel())
+    corner = tuple(corners[0].ravel().astype(int))
+    imgpts = imgpts.astype(int)
+
     img = cv.line(img, corner, tuple(imgpts[0].ravel()), (255,0,0), 5)
     img = cv.line(img, corner, tuple(imgpts[1].ravel()), (0,255,0), 5)
     img = cv.line(img, corner, tuple(imgpts[2].ravel()), (0,0,255), 5)
+    return img
+
+def draw_cube(img, corners, imgpts_cube):
+    imgpts_cube = np.int32(imgpts_cube).reshape(-1,2)
+    # Draw the bottom square
+    for i, j in zip(range(4), range(4, 8)):
+        img = cv.line(img, tuple(imgpts_cube[i]), tuple(imgpts_cube[j]), (0,0,255), 3)
+    # Draw vertical pillars
+    img = cv.drawContours(img, [imgpts_cube[:4]], -1, (0,255,0), -3)
+    # Draw top square
+    img = cv.drawContours(img, [imgpts_cube[4:]], -1, (255,0,0), 3)
     return img
 
 # Define the width and height of the internal chessboard (in squares)
@@ -158,7 +173,11 @@ for images_name in images_names:
         objp = np.zeros(((width+1)*(height+1),3), np.float32)
         objp[:,:2] = np.mgrid[0:(height+1),0:(width+1)].T.reshape(-1,2) * square_size
         axis = np.float32([[3,0,0], [0,3,0], [0,0,-3]]).reshape(-1,3)
-
+        cube_size = square_size * 3  # Size of the cube - 3 times a chessboard square
+        cube_points = np.float32([
+        [0, 0, 0], [0, cube_size, 0], [cube_size, cube_size, 0], [cube_size, 0, 0],
+        [0, 0, -cube_size], [0, cube_size, -cube_size], [cube_size, cube_size, -cube_size], [cube_size, 0, -cube_size]
+        ])
         for fname in glob.glob('Chessboard_9_more_selected.jpg'):
             img = cv.imread(fname)
             gray = cv.cvtColor(img,cv.COLOR_BGR2GRAY)
@@ -167,10 +186,13 @@ for images_name in images_names:
                 corners2 = cv.cornerSubPix(gray,corners,(11,11),(-1,-1),criteria)
                 # Find the rotation and translation vectors.
                 ret,rvecs, tvecs = cv.solvePnP(objp, corners2, mtx, dist)
+                imgpts_cube, _ = cv.projectPoints(cube_points, rvecs, tvecs, mtx, dist)
                 # project 3D points to image plane
                 imgpts, jac = cv.projectPoints(axis, rvecs, tvecs, mtx, dist)
                 img = draw(img,corners2,imgpts)
+                img = draw_cube(img, corners2, imgpts_cube)
                 print("GETS HERE")
+                cv.namedWindow('img', cv.WINDOW_NORMAL)
                 cv.imshow('img',img)
                 k = cv.waitKey(0) & 0xFF
                 if k == ord('s'):
