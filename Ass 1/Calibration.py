@@ -36,6 +36,7 @@ height = 8
 click = 0
 # termination criteria
 criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+image_size = None
 
 ret_list = []
 mtx_list = []
@@ -89,9 +90,6 @@ for images_name in images_names:
             cv.waitKey(0) # Press any key to continue after 4 clicks
             cv.destroyAllWindows()
 
-            if click < 4:
-                print("Insufficient points selected.")
-                continue
             h, w = img.shape[:2]
             # Perspective transformation
             target_height, target_width = img.shape[:2]  # You can set a specific size
@@ -144,12 +142,16 @@ for images_name in images_names:
             click = 0
             manual_coordinates = np.zeros((4, 2), dtype=np.float32)
         
-    ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
+        if image_size is None:
+           image_size = gray.shape[::-1] 
+        
+    if image_size is not None:
+       ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, image_size, None, None)
     
-    ret_list.append(ret)
-    mtx_list.append(mtx)
-    dist_list.append(dist)
-    rvecs_list.append(rvecs)
-    tvecs_list.append(tvecs)
+       ret_list.append(ret)
+       mtx_list.append(mtx)
+       dist_list.append(dist)
+       rvecs_list.append(rvecs)
+       tvecs_list.append(tvecs)
 
 cv.destroyAllWindows()
