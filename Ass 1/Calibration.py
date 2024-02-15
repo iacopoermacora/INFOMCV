@@ -29,13 +29,6 @@ def click_event(event, x, y, flags, params):
             cv.putText(img, 'Press any key to find all chessboard corners', org, font, fontScale, color, thickness, cv.LINE_AA)
             cv.imshow('img', img)
 
-# Define the function to draw
-def drawCube(img, corners, imgpts):
-    corner = tuple(corners[0].ravel().astype(int))
-    img = cv.line(img, corner, tuple(imgpts[0].ravel().astype(int)), (255,0,0), 5)
-    img = cv.line(img, corner, tuple(imgpts[1].ravel().astype(int)), (0,255,0), 5)
-    img = cv.line(img, corner, tuple(imgpts[2].ravel().astype(int)), (0,0,255), 5)
-    return img
 
 # Define the width and height of the internal chessboard (in squares)
 width = 5
@@ -158,41 +151,5 @@ for images_name in images_names:
     dist_list.append(dist)
     rvecs_list.append(rvecs)
     tvecs_list.append(tvecs)
-
-    # Load the test image
-    img_test = cv.imread('Chessboard_20_test_more_selected.jpg')
-    gray = cv.cvtColor(img_test, cv.COLOR_BGR2GRAY)
-
-    # Define the 3D points for axes
-    axis = np.float32([[3,0,0], [0,3,0], [0,0,-3]]).reshape(-1,3)
-
-    # Find the chess board corners
-    ret, corners = cv.findChessboardCorners(gray, (height+1,width+1), None, cv.CALIB_CB_FAST_CHECK)
-
-    # If found, add object points, image points (after refining them)
-    if ret == True:
-        # Find the rotation and translation vectors.
-        ret,rvecs, tvecs = cv.solvePnP(objp, corners, mtx, dist)
-        
-        # Project 3D points to image plane
-        imgpts, jac = cv.projectPoints(axis, rvecs, tvecs, mtx, dist)
-        
-        # Draw axes
-        img_test = drawCube(img_test, corners, imgpts)
-        
-        # Define the 3D points for the cube (assuming the cube has size 3x3x3)
-        cube_points = np.float32([[0,0,0], [0,3,0], [3,3,0], [3,0,0],
-                                [0,0,-3], [0,3,-3], [3,3,-3], [3,0,-3]])
-        
-        # Project cube points
-        imgpts, jac = cv.projectPoints(cube_points, rvecs, tvecs, mtx, dist)
-        
-        # Draw the cube
-        img_test = drawCube(img, corners, imgpts)
-
-    cv.namedWindow('img', cv.WINDOW_NORMAL)
-    cv.imshow('img', img)
-    cv.waitKey(0)
-    cv.destroyAllWindows()
 
 cv.destroyAllWindows()
