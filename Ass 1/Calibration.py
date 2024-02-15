@@ -32,23 +32,34 @@ def click_event(event, x, y, flags, params):
             cv.imshow('img', img)
 
 def draw(img, corners, imgpts):
-    corner = tuple(corners[0].ravel().astype(int))
-    imgpts = imgpts.astype(int)
+    def tupleOfInts(arr):
+        return tuple(int(x) for x in arr)
+    
+    corner = tupleOfInts(corners[0].ravel())
 
-    img = cv.line(img, corner, tuple(imgpts[0].ravel()), (255,0,0), 5)
-    img = cv.line(img, corner, tuple(imgpts[1].ravel()), (0,255,0), 5)
-    img = cv.line(img, corner, tuple(imgpts[2].ravel()), (0,0,255), 5)
+    img = cv.line(img, corner, tupleOfInts(imgpts[0].ravel()), (255,0,0), 5)
+    img = cv.line(img, corner, tupleOfInts(imgpts[1].ravel()), (0,255,0), 5)
+    img = cv.line(img, corner, tupleOfInts(imgpts[2].ravel()), (0,0,255), 5)
     return img
 
-def draw_cube(img, corners, imgpts_cube):
-    imgpts_cube = np.int32(imgpts_cube).reshape(-1,2)
-    # Draw the bottom square
-    for i, j in zip(range(4), range(4, 8)):
-        img = cv.line(img, tuple(imgpts_cube[i]), tuple(imgpts_cube[j]), (0,0,255), 3)
-    # Draw vertical pillars
-    img = cv.drawContours(img, [imgpts_cube[:4]], -1, (0,255,0), -3)
-    # Draw top square
-    img = cv.drawContours(img, [imgpts_cube[4:]], -1, (255,0,0), 3)
+def draw_cube(img, imgpts_cube, color=(0, 255, 0), thickness=3):
+    imgpts_cube = imgpts_cube.reshape(-1, 2)
+    imgpts_cube = np.int32(imgpts_cube)
+
+    # Draw bottom face
+    for i in range(4):
+        next_index = (i + 1) % 4
+        img = cv.line(img, tuple(imgpts_cube[i]), tuple(imgpts_cube[next_index]), color, thickness)
+    
+    # Draw top face
+    for i in range(4, 8):
+        next_index = 4 + ((i + 1) % 4)
+        img = cv.line(img, tuple(imgpts_cube[i]), tuple(imgpts_cube[next_index]), color, thickness)
+
+    # Draw vertical lines (pillars)
+    for i in range(4):
+        img = cv.line(img, tuple(imgpts_cube[i]), tuple(imgpts_cube[i + 4]), color, thickness)
+
     return img
 
 # Define the width and height of the internal chessboard (in squares)
@@ -171,14 +182,14 @@ for images_name in images_names:
     
         criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
         objp = np.zeros(((width+1)*(height+1),3), np.float32)
-        objp[:,:2] = np.mgrid[0:(height+1),0:(width+1)].T.reshape(-1,2) * square_size
-        axis = np.float32([[3,0,0], [0,3,0], [0,0,-3]]).reshape(-1,3)
-        cube_size = square_size * 3  # Size of the cube - 3 times a chessboard square
+        objp[:,:2] = np.mgrid[0:(height+1),0:(width+1)].T.reshape(-1,2) # * square_size
+        axis = np.float32([[4,0,0], [0,4,0], [0,0,-4]]).reshape(-1,3)
+        cube_size = 2  # Size of the cube - 3 times a chessboard square
         cube_points = np.float32([
         [0, 0, 0], [0, cube_size, 0], [cube_size, cube_size, 0], [cube_size, 0, 0],
         [0, 0, -cube_size], [0, cube_size, -cube_size], [cube_size, cube_size, -cube_size], [cube_size, 0, -cube_size]
         ])
-        for fname in glob.glob('Chessboard_9_more_selected.jpg'):
+        for fname in glob.glob('Chessboard_20_test_more_selected.jpg'):
             img = cv.imread(fname)
             gray = cv.cvtColor(img,cv.COLOR_BGR2GRAY)
             ret, corners = cv.findChessboardCorners(gray, (height+1,width+1), None, cv.CALIB_CB_FAST_CHECK)
@@ -189,9 +200,8 @@ for images_name in images_names:
                 imgpts_cube, _ = cv.projectPoints(cube_points, rvecs, tvecs, mtx, dist)
                 # project 3D points to image plane
                 imgpts, jac = cv.projectPoints(axis, rvecs, tvecs, mtx, dist)
-                img = draw(img,corners2,imgpts)
-                img = draw_cube(img, corners2, imgpts_cube)
-                print("GETS HERE")
+                img = draw(img, corners2, imgpts)
+                img = draw_cube(img, imgpts_cube, color=(255, 255, 0), thickness=3)
                 cv.namedWindow('img', cv.WINDOW_NORMAL)
                 cv.imshow('img',img)
                 k = cv.waitKey(0) & 0xFF
