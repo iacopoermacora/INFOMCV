@@ -2,9 +2,6 @@ import numpy as np
 import cv2 as cv
 import glob
 
-manual_coordinates = np.zeros((4, 2), dtype=np.float32)
-click = 0
-
 def click_event(event, x, y, flags, params): 
     global click
     global manual_coordinates
@@ -32,105 +29,170 @@ def click_event(event, x, y, flags, params):
             cv.putText(img, 'Press any key to find all chessboard corners', org, font, fontScale, color, thickness, cv.LINE_AA)
             cv.imshow('img', img)
 
+# Define the function to draw
+def drawCube(img, corners, imgpts):
+    corner = tuple(corners[0].ravel().astype(int))
+    img = cv.line(img, corner, tuple(imgpts[0].ravel().astype(int)), (255,0,0), 5)
+    img = cv.line(img, corner, tuple(imgpts[1].ravel().astype(int)), (0,255,0), 5)
+    img = cv.line(img, corner, tuple(imgpts[2].ravel().astype(int)), (0,0,255), 5)
+    return img
+
 # Define the width and height of the internal chessboard (in squares)
 width = 5
 height = 8
-
+click = 0
 # termination criteria
 criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
-# prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
-square_size = 0.022
-objp = np.zeros(((width+1)*(height+1),3), np.float32)
-objp[:,:2] = np.mgrid[0:(height+1),0:(width+1)].T.reshape(-1,2) * square_size
-# Arrays to store object points and image points from all the images.
-objpoints = [] # 3d point in real world space
-imgpoints = [] # 2d points in image plane.
-images = glob.glob('*.jpg')
-for fname in images:
-    print(fname)
-    img = cv.imread(fname)
-    gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+
+ret_list = []
+mtx_list = []
+dist_list = []
+rvecs_list = []
+tvecs_list = []
+
+images_names = ['*_selected.jpg', '*_more_selected.jpg'] # '*.jpg'
+for images_name in images_names:
+    images = glob.glob(images_name)
+    print(images_name)
+
+    # prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
+    square_size = 0.022
+    objp = np.zeros(((width+1)*(height+1),3), np.float32)
+    objp[:,:2] = np.mgrid[0:(height+1),0:(width+1)].T.reshape(-1,2) * square_size
+
+    # Arrays to store object points and image points from all the images.
+    objpoints = [] # 3d point in real world space
+    imgpoints = [] # 2d points in image plane.
+
+    manual_coordinates = np.zeros((4, 2), dtype=np.float32)
+
+    for fname in images:
+        print(fname)
+        img = cv.imread(fname)
+        gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+        # Find the chess board corners
+        ret, corners = cv.findChessboardCorners(gray, (height+1,width+1), None, cv.CALIB_CB_FAST_CHECK)
+        # ret = False
+        # If found, add object points, image points (after refining them)
+        if ret == True:
+            print("Auto corners: ", fname)
+            objpoints.append(objp)
+            corners2 = cv.cornerSubPix(gray, corners, (11,11), (-1,-1), criteria)
+            imgpoints.append(corners2)
+            # Draw and display the corners
+            cv.namedWindow('img', cv.WINDOW_NORMAL)
+            cv.drawChessboardCorners(img, (9,6), corners2, ret)
+            cv.imshow('img', img)
+            cv.waitKey(1000)
+            cv.destroyAllWindows()
+        else:
+            print("Manual corners: ", fname)
+            print("Select 4 corners in the image in the order: top-left, top-right, bottom-right, bottom-left")
+            input("Press Enter to continue...")
+            # Setting mouse handler for the image 
+            cv.namedWindow('img', cv.WINDOW_NORMAL)
+            cv.imshow('img', img)
+            cv.setMouseCallback('img', click_event) # Limit to 4 clicks
+            cv.waitKey(0) # Press any key to continue after 4 clicks
+            cv.destroyAllWindows()
+
+            if click < 4:
+                print("Insufficient points selected.")
+                continue
+            h, w = img.shape[:2]
+            # Perspective transformation
+            target_height, target_width = img.shape[:2]  # You can set a specific size
+            new_corners = np.float32([[0, 0], [target_width, 0], [target_width, target_height], [0, target_height]])
+            # Calculate perspective transform matrix
+            matrix = cv.getPerspectiveTransform(manual_coordinates, new_corners)
+            # Apply perspective transform
+            warped_image = cv.warpPerspective(img, matrix, (target_width, target_height))
+
+            warped_corners = cv.perspectiveTransform(manual_coordinates.reshape(-1, 1, 2), matrix)
+
+            # Initialize variables to store the width and height of the warped image
+            width_warp = 0
+            height_warp = 0
+
+            # Iterate through warped_corners to find width and height
+            for point in warped_corners:
+                x, y = point[0]
+                if y > height_warp:
+                    height_warp = y
+                if x > width_warp:
+                    width_warp = x
+            
+            # Define the grid coordinates
+            grid_points = np.zeros(((height+1) * (width+1), 2), dtype=np.float32)
+
+            # Generate grid coordinates
+            index = 0
+            for j in range(width+1):
+                for i in range(height, -1, -1):
+                    x = j * width_warp/width
+                    y = i * height_warp/height
+                    grid_points[index] = (x, y)  # Adjust 100 according to your grid spacing
+                    index += 1
+
+            Minv = cv.invert(matrix)[1]
+            original_points = cv.perspectiveTransform(grid_points.reshape(-1, 1, 2), Minv)
+            
+            objpoints.append(objp)
+            corners2 = cv.cornerSubPix(gray, original_points, (11,11), (-1,-1), criteria)
+            imgpoints.append(corners2)
+
+            cv.namedWindow('img', cv.WINDOW_NORMAL)
+            cv.drawChessboardCorners(img, (9,6), original_points, True)
+            cv.imshow('img', img)
+            cv.waitKey(1000)
+            cv.destroyAllWindows()
+
+            # Reset click count and manual_coordinates for the next image
+            click = 0
+            manual_coordinates = np.zeros((4, 2), dtype=np.float32)
+        
+    ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
+    
+    ret_list.append(ret)
+    mtx_list.append(mtx)
+    dist_list.append(dist)
+    rvecs_list.append(rvecs)
+    tvecs_list.append(tvecs)
+
+    # Load the test image
+    img_test = cv.imread('Chessboard_20_test_more_selected.jpg')
+    gray = cv.cvtColor(img_test, cv.COLOR_BGR2GRAY)
+
+    # Define the 3D points for axes
+    axis = np.float32([[3,0,0], [0,3,0], [0,0,-3]]).reshape(-1,3)
+
     # Find the chess board corners
     ret, corners = cv.findChessboardCorners(gray, (height+1,width+1), None, cv.CALIB_CB_FAST_CHECK)
-    # ret = False
+
     # If found, add object points, image points (after refining them)
     if ret == True:
-        print("Auto corners: ", fname)
-        objpoints.append(objp)
-        corners2 = cv.cornerSubPix(gray, corners, (11,11), (-1,-1), criteria)
-        imgpoints.append(corners2)
-        # Draw and display the corners
-        cv.namedWindow('img', cv.WINDOW_NORMAL)
-        cv.drawChessboardCorners(img, (9,6), corners2, ret)
-        cv.imshow('img', img)
-        cv.waitKey(1000)
-        cv.destroyAllWindows()
-    else:
-        print("Manual corners: ", fname)
-        print("Select 4 corners in the image in the order: top-left, top-right, bottom-right, bottom-left")
-        input("Press Enter to continue...")
-        # Setting mouse handler for the image 
-        cv.namedWindow('img', cv.WINDOW_NORMAL)
-        cv.imshow('img', img)
-        cv.setMouseCallback('img', click_event) # Limit to 4 clicks
-        cv.waitKey(0) # Press any key to continue after 4 clicks
-        cv.destroyAllWindows()
-
-        if click < 4:
-            print("Insufficient points selected.")
-            continue
-        h, w = img.shape[:2]
-        # Perspective transformation
-        target_height, target_width = img.shape[:2]  # You can set a specific size
-        new_corners = np.float32([[0, 0], [target_width, 0], [target_width, target_height], [0, target_height]])
-        # Calculate perspective transform matrix
-        matrix = cv.getPerspectiveTransform(manual_coordinates, new_corners)
-        # Apply perspective transform
-        warped_image = cv.warpPerspective(img, matrix, (target_width, target_height))
-
-        warped_corners = cv.perspectiveTransform(manual_coordinates.reshape(-1, 1, 2), matrix)
-
-        # Initialize variables to store the width and height of the warped image
-        width_warp = 0
-        height_warp = 0
-
-        # Iterate through warped_corners to find width and height
-        for point in warped_corners:
-            x, y = point[0]
-            if y > height_warp:
-                height_warp = y
-            if x > width_warp:
-                width_warp = x
+        # Find the rotation and translation vectors.
+        ret,rvecs, tvecs = cv.solvePnP(objp, corners, mtx, dist)
         
-        # Define the grid coordinates
-        grid_points = np.zeros(((height+1) * (width+1), 2), dtype=np.float32)
-
-        # Generate grid coordinates
-        index = 0
-        for j in range(width+1):
-            for i in range(height, -1, -1):
-                x = j * width_warp/width
-                y = i * height_warp/height
-                grid_points[index] = (x, y)  # Adjust 100 according to your grid spacing
-                index += 1
-
-        Minv = cv.invert(matrix)[1]
-        original_points = cv.perspectiveTransform(grid_points.reshape(-1, 1, 2), Minv)
+        # Project 3D points to image plane
+        imgpts, jac = cv.projectPoints(axis, rvecs, tvecs, mtx, dist)
         
-        objpoints.append(objp)
-        corners2 = cv.cornerSubPix(gray, original_points, (11,11), (-1,-1), criteria)
-        imgpoints.append(corners2)
+        # Draw axes
+        img_test = drawCube(img_test, corners, imgpts)
+        
+        # Define the 3D points for the cube (assuming the cube has size 3x3x3)
+        cube_points = np.float32([[0,0,0], [0,3,0], [3,3,0], [3,0,0],
+                                [0,0,-3], [0,3,-3], [3,3,-3], [3,0,-3]])
+        
+        # Project cube points
+        imgpts, jac = cv.projectPoints(cube_points, rvecs, tvecs, mtx, dist)
+        
+        # Draw the cube
+        img_test = drawCube(img, corners, imgpts)
 
-        cv.namedWindow('img', cv.WINDOW_NORMAL)
-        cv.drawChessboardCorners(img, (9,6), original_points, True)
-        cv.imshow('img', img)
-        cv.waitKey(1000)
-        cv.destroyAllWindows()
-
-        # Reset click count and manual_coordinates for the next image
-        click = 0
-        manual_coordinates = np.zeros((4, 2), dtype=np.float32)
-    
-ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
+    cv.namedWindow('img', cv.WINDOW_NORMAL)
+    cv.imshow('img', img)
+    cv.waitKey(0)
+    cv.destroyAllWindows()
 
 cv.destroyAllWindows()
