@@ -36,12 +36,15 @@ def process_frame(img, objp, criteria, mtx, dist, axis, cube_points):
     ret, corners = cv.findChessboardCorners(gray, (height+1,width+1), None, cv.CALIB_CB_FAST_CHECK)
     if ret:
         corners2 = cv.cornerSubPix(gray, corners, (11,11), (-1,-1), criteria)
+        light_position = np.array([5, 5, 5])  # An example light position above the cube
+        plane_z = 0  # The z-value of the plane where the shadow is cast (here, it's the same as the chessboard plane)
         # Find the rotation and translation vectors.
         ret, rvecs, tvecs = cv.solvePnP(objp, corners2, mtx, dist)
         imgpts, jac = cv.projectPoints(axis, rvecs, tvecs, mtx, dist)
         imgpts_cube, jac = cv.projectPoints(cube_points, rvecs, tvecs, mtx, dist)
         img = draw(img, corners2, imgpts)
         img = draw_cube(img, imgpts_cube, color=(255, 255, 0), thickness=3)
+        img = draw_shadow(img, imgpts_cube, light_position, plane_z, mtx, dist, rvecs, tvecs,)
     return img
 
 
@@ -60,24 +63,50 @@ def draw_cube(img, imgpts_cube, color=(0, 255, 0), thickness=3):
     imgpts_cube = imgpts_cube.reshape(-1, 2)
     imgpts_cube = np.int32(imgpts_cube)
 
-    # Draw bottom face
+    # Indices of the cube points for each edge
+    edges = [
+        (0, 1), (1, 2), (2, 3), (3, 0),  # Bottom face edges
+        (4, 5), (5, 6), (6, 7), (7, 4),  # Top face edges
+        (0, 4), (1, 5), (2, 6), (3, 7)   # Vertical edges (pillars)
+    ]
+
+    # Z-values for each point (simulated for demonstration)
+    z_values = [cube_points[i][2] for i in range(8)]
+    
+    # Sort the edges by the average z-value of the edge's points (for depth reasoning)
+    edges = sorted(edges, key=lambda e: (z_values[e[0]] + z_values[e[1]]) / 2, reverse=True)
+
+    # Draw the edges from back to front
+    for e in edges:
+        img = cv.line(img, tuple(imgpts_cube[e[0]]), tuple(imgpts_cube[e[1]]), color, thickness)
+
+    return img
+
+
+def draw_shadow(img, imgpts_cube, light_position, plane_z, mtx, dist, rvecs, tvecs, color=(50, 50, 50), thickness=3):
+    # Calculate the shadow points based on the light position
+    shadow_pts = []
+    for pt in cube_points:
+        # Vector from light to the original point
+        light_to_pt = pt - light_position
+        # Find where this vector intersects with the plane (here, the plane is parallel to the camera plane)
+        shadow_z_ratio = (plane_z - light_position[2]) / light_to_pt[2]
+        shadow_pt = light_position + light_to_pt * shadow_z_ratio
+        shadow_pts.append(shadow_pt)
+
+    shadow_pts = np.array(shadow_pts, dtype=np.float32)
+    imgpts_shadow, _ = cv.projectPoints(shadow_pts, rvecs, tvecs, mtx, dist)
+    imgpts_shadow = np.int32(imgpts_shadow).reshape(-1, 2)
+
+    # Draw the shadow by connecting the shadow points
     for i in range(4):
         next_index = (i + 1) % 4
-        img = cv.line(img, tuple(imgpts_cube[i]), tuple(imgpts_cube[next_index]), color, thickness)
-    
-    # Draw top face
-    for i in range(4, 8):
-        next_index = 4 + ((i + 1) % 4)
-        img = cv.line(img, tuple(imgpts_cube[i]), tuple(imgpts_cube[next_index]), color, thickness)
-
-    # Draw vertical lines (pillars)
-    for i in range(4):
-        img = cv.line(img, tuple(imgpts_cube[i]), tuple(imgpts_cube[i + 4]), color, thickness)
+        img = cv.line(img, tuple(imgpts_shadow[i]), tuple(imgpts_shadow[next_index]), color, thickness)
 
     return img
 
 use_webcam = False
-error_threshold = 0.1
+error_threshold = 0.5
 
 # Define the width and height of the internal chessboard (in squares)
 width = 5
@@ -271,7 +300,7 @@ for images_name in images_names:
             cap.release()
         else:
             # When using static images
-            for fname in glob.glob('Chessboard_6.jpg'):
+            for fname in glob.glob('Chessboard_7_more_selected.jpg'):
                 img = cv.imread(fname)
                 img = process_frame(img, objp, criteria, mtx, dist, axis, cube_points)
                 cv.namedWindow('img', cv.WINDOW_NORMAL)
