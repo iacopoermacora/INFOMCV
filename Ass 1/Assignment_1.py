@@ -98,16 +98,6 @@ def manual_corners_selection(gray, img):
 
     matrix_inv = cv.invert(matrix)[1]
     corners = cv.perspectiveTransform(grid_points.reshape(-1, 1, 2), matrix_inv)
-    
-    objpoints.append(objp)
-    corners2 = cv.cornerSubPix(gray, corners, (11,11), (-1,-1), criteria)
-    imgpoints.append(corners2)
-
-    cv.namedWindow('img', cv.WINDOW_NORMAL)
-    cv.drawChessboardCorners(img, (9,6), corners2, True)
-    cv.imshow('img', img)
-    cv.waitKey(1000)
-    cv.destroyAllWindows()
 
     add_corners_show_image(gray, img)
 
@@ -121,16 +111,20 @@ def add_corners_show_image(gray, img):
     global imgpoints
     global criteria
     global corners
+    global height
+    global width
 
     objpoints.append(objp)
     corners2 = cv.cornerSubPix(gray, corners, (11,11), (-1,-1), criteria)
     imgpoints.append(corners2)
+
     # Draw and display the corners
     cv.namedWindow('img', cv.WINDOW_NORMAL)
-    cv.drawChessboardCorners(img, (9,6), corners2, ret)
+    cv.drawChessboardCorners(img, (height+1,width+1), corners2, True)
     cv.imshow('img', img)
-    cv.waitKey(1000)
+    cv.waitKey(2000)
     cv.destroyAllWindows()
+    cv.waitKey(1)
 
 
 def process_frame(img, objp, criteria, mtx, dist, axis, cube_points):
@@ -295,7 +289,7 @@ def draw_cube(img, imgpts_cube, color=(0, 255, 0), thickness=3):
 # Settings
 
 # Set to True to use the webcam for testing, or False to use the test static image
-use_webcam = False
+use_webcam = True
 # Set the error threshold for rejecting low-quality images
 error_threshold = 0.5
 # Define the width and height of the internal chessboard (in squares)
