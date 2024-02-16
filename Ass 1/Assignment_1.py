@@ -53,33 +53,23 @@ def manual_corners_selection(gray, img):
     input("\tPress Enter to continue...")
     print("\tClick on the image to select the corners...")
     correct_corners = False
-    while(not(correct_corners)):
-        # Setting mouse handler for the image 
-        cv.namedWindow('img', cv.WINDOW_NORMAL)
-        cv.imshow('img', img)
-        cv.setMouseCallback('img', click_event) # Limit to 4 clicks
-        cv.waitKey(0) # Press any key to continue after 4 clicks
-        cv.destroyAllWindows()
 
-        # Perspective transformation
-        target_height, target_width = img.shape[:2]  # You can set a specific size
-        new_corners = np.float32([[0, 0], [target_width, 0], [target_width, target_height], [0, target_height]])
-        # Calculate perspective transform matrix
-        matrix = cv.getPerspectiveTransform(manual_coordinates, new_corners)
+    # Setting mouse handler for the image 
+    cv.namedWindow('img', cv.WINDOW_NORMAL)
+    cv.imshow('img', img)
+    cv.setMouseCallback('img', click_event) # Limit to 4 clicks
+    cv.waitKey(0) # Press any key to continue after 4 clicks
+    cv.destroyAllWindows()
 
-        warped_corners = cv.perspectiveTransform(manual_coordinates.reshape(-1, 1, 2), matrix)
-        print(warped_corners)
-        # Check if the corners are in the correct order
-        p1, p2, p3, p4 = warped_corners
-        distance_p1_p2 = math.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
-        distance_p2_p3 = math.sqrt((p3[0] - p2[0])**2 + (p3[1] - p2[1])**2)
-        if (width < height) and (distance_p1_p2 < distance_p2_p3) or (width > height) and (distance_p1_p2 > distance_p2_p3):
-            correct_corners = True
-        else:
-            print("The points are not in the correct order, you need to select them again!")
-            print("\tThe corners should be selected in a clockwise order and the first selected side should be long ", width, " squares.")
-            click = 0
-            manual_coordinates = np.zeros((4, 2), dtype=np.float32)
+    # Perspective transformation
+    target_height, target_width = img.shape[:2]  # You can set a specific size
+    new_corners = np.float32([[0, 0], [target_width, 0], [target_width, target_height], [0, target_height]])
+    # Calculate perspective transform matrix
+    matrix = cv.getPerspectiveTransform(manual_coordinates, new_corners)
+
+    warped_corners = cv.perspectiveTransform(manual_coordinates.reshape(-1, 1, 2), matrix)
+    click = 0
+    manual_coordinates = np.zeros((4, 2), dtype=np.float32)                             
 
 
     # Initialize variables to store the width and height of the warped image
@@ -267,8 +257,8 @@ def plot_camera_positions(tvecs):
     ax.set_ylabel('Y (meters)')
     ax.set_zlabel('Z (meters)')
     ax.legend()
-    plt.show()
     print("\tClose the plot window to continue...")
+    plt.show()
     print("\n")
 
 def draw(img, corners2, imgpts):
