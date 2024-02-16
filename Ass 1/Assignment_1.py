@@ -295,7 +295,7 @@ def draw_cube(img, imgpts_cube, color=(0, 255, 0), thickness=3):
 # Settings
 
 # Set to True to use the webcam for testing, or False to use the test static image
-use_webcam = True
+use_webcam = False
 # Set the error threshold for rejecting low-quality images
 error_threshold = 0.5
 # Define the width and height of the internal chessboard (in squares)
@@ -324,7 +324,7 @@ dist_list = []
 rvecs_list = []
 tvecs_list = []
 
-runs = ['*.jpg', '*_selected.jpg', '*_more_selected.jpg'] # Run1: all 25 images, Run2: 10 images corners auto, Run3: 5 images corners auto
+runs = ['Chessboard*.jpg', '*_selected.jpg', '*_more_selected.jpg'] # Run1: all 25 images, Run2: 10 images corners auto, Run3: 5 images corners auto
 for run_n, run in enumerate(runs):
     images = glob.glob(run)
     print("\n\n")
@@ -403,7 +403,7 @@ for run_n, run in enumerate(runs):
             print("\n")
         else:
             # When using static images
-            for fname in glob.glob('Chessboard_7_more_selected.jpg'):
+            for fname in glob.glob('Test_image.jpg'):
                 print("Using the test static image...", fname)
                 print("\tPress 's' to save the image or any other key to continue")
                 img = cv.imread(fname)
@@ -412,7 +412,7 @@ for run_n, run in enumerate(runs):
                 cv.imshow('img', img)
                 k = cv.waitKey(0) & 0xFF
                 if k == ord('s'):
-                    cv.imwrite(fname[:6]+'.png', img)
+                    cv.imwrite('Result_image_run_'+run_n+'.png', img)
                 cv.destroyAllWindows()
             print("\n")
         
