@@ -325,11 +325,6 @@ img_info = cv.imread("Test_image.jpg")
 height_image, width_image, _ = img_info.shape
 image_resolution = (width, height)
 
-# Field of view (in degrees)
-fov = (1, 1)  # Example field of view recalculated later once the camera matrix is ready
-
-aspectRatio = width_image / height_image
-
 runs = ['Chessboard*.jpg', '*_selected.jpg', '*_more_selected.jpg'] # Run1: all 25 images, Run2: 10 images corners auto, Run3: 5 images corners auto
 for run_n, run in enumerate(runs):
     images = glob.glob(run)
@@ -378,14 +373,19 @@ for run_n, run in enumerate(runs):
 
         print("Intrinsic camera matrix run ", (run_n+1), ": ", mtx)
 
-        # fov = cv.calibrationMatrixValues(mtx, image_resolution, PLACEHOLDER, PLACEHOLDER) # In here we need the sensor size...
+        # Assume mtx, rvecs, tvecs are obtained from cv.calibrateCamera()
+        focal_length_x = mtx[0, 0]
+        focal_length_y = mtx[1, 1]
+        principal_point_x = mtx[0, 2]
+        principal_point_y = mtx[1, 2]
+        aspect_ratio = focal_length_x / focal_length_y
 
-        # # Get explicit form of the camera matrix
-        # focal_lengths, principal_point, aspect_ratio = cv.calibrationMatrixValues(mtx, image_resolution, fov)
-
-        # print("\tFocal Lengths (fx, fy):", focal_lengths)
-        # print("\tPrincipal Point (cx, cy):", principal_point)
-        # print("\tAspect Ratio:", aspect_ratio)
+        print(f"\tFocal length in x (f_x): {focal_length_x}")
+        print(f"\tFocal length in y (f_y): {focal_length_y}")
+        print(f"\tPrincipal point x (c_x): {principal_point_x}")
+        print(f"\tPrincipal point y (c_y): {principal_point_y}")
+        print(f"\tAspect ratio: {aspect_ratio}")
+        print(f"Resolution of the images: {image_resolution}")
 
         objp_test = np.zeros(((width+1)*(height+1),3), np.float32)
         objp_test[:,:2] = np.mgrid[0:(height+1),0:(width+1)].T.reshape(-1,2)
