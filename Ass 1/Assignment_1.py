@@ -122,7 +122,7 @@ def add_corners_show_image(gray, img):
     cv.namedWindow('img', cv.WINDOW_NORMAL)
     cv.drawChessboardCorners(img, (height+1,width+1), corners2, True)
     cv.imshow('img', img)
-    cv.waitKey(2000)
+    cv.waitKey(1000)
     cv.destroyAllWindows()
     cv.waitKey(1)
 
@@ -318,6 +318,18 @@ dist_list = []
 rvecs_list = []
 tvecs_list = []
 
+# Define the image properties (based on the test image as all the images come from the same camera)
+img_info = cv.imread("Test_image.jpg")
+
+# Image resolution (width, height)
+height_image, width_image, _ = img_info.shape
+image_resolution = (width, height)
+
+# Field of view (in degrees)
+fov = (1, 1)  # Example field of view recalculated later once the camera matrix is ready
+
+aspectRatio = width_image / height_image
+
 runs = ['Chessboard*.jpg', '*_selected.jpg', '*_more_selected.jpg'] # Run1: all 25 images, Run2: 10 images corners auto, Run3: 5 images corners auto
 for run_n, run in enumerate(runs):
     images = glob.glob(run)
@@ -364,6 +376,17 @@ for run_n, run in enumerate(runs):
         # Reject low-quality images and recalibrate
         ret, mtx, dist, rvecs, tvecs = reject_low_quality_images(ret, mtx, dist, rvecs, tvecs)
 
+        print("Intrinsic camera matrix run ", (run_n+1), ": ", mtx)
+
+        # fov = cv.calibrationMatrixValues(mtx, image_resolution, PLACEHOLDER, PLACEHOLDER) # In here we need the sensor size...
+
+        # # Get explicit form of the camera matrix
+        # focal_lengths, principal_point, aspect_ratio = cv.calibrationMatrixValues(mtx, image_resolution, fov)
+
+        # print("\tFocal Lengths (fx, fy):", focal_lengths)
+        # print("\tPrincipal Point (cx, cy):", principal_point)
+        # print("\tAspect Ratio:", aspect_ratio)
+
         objp_test = np.zeros(((width+1)*(height+1),3), np.float32)
         objp_test[:,:2] = np.mgrid[0:(height+1),0:(width+1)].T.reshape(-1,2)
         axis = np.float32([[4,0,0], [0,4,0], [0,0,-4]]).reshape(-1,3)
@@ -406,7 +429,7 @@ for run_n, run in enumerate(runs):
                 cv.imshow('img', img)
                 k = cv.waitKey(0) & 0xFF
                 if k == ord('s'):
-                    cv.imwrite('Result_image_run_'+run_n+'.png', img)
+                    cv.imwrite("Result_image_run_" + str(run_n+1) + ".png", img)
                 cv.destroyAllWindows()
             print("\n")
         
