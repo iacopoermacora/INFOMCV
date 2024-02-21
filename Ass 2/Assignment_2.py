@@ -1,5 +1,7 @@
-import camera_calibration.py as cc
-import settings.py as settings
+import camera_calibration as cc
+import settings as settings
+import cv2 as cv
+import os
 
 def background_subtraction():
     cap = cv.VideoCapture('vtest.avi')
@@ -21,7 +23,7 @@ def create_background_model_gmm(video_path):
         return None
 
     # Create the background subtractor object
-    backSub = cv.createBackgroundSubtractorMOG2(history=50, varThreshold=16, detectShadows=True)
+    backSub = cv.createBackgroundSubtractorMOG2(history=500, varThreshold=16, detectShadows=True)
 
     while True:
         ret, frame = cap.read()
@@ -31,9 +33,8 @@ def create_background_model_gmm(video_path):
             break
         # Apply the background subtractor to each frame
         fgMask = backSub.apply(frame)
-
     # Retrieve the final background model after processing all frames
-    background_model = backSub.getBackgroundImage() 
+    background_model = backSub.getBackgroundImage()
     
     cap.release()
     return background_model
@@ -69,31 +70,27 @@ def background_subtraction(video_path, background_model_path):
         # Combine the thresholds (example using logical AND)
         combined_mask = cv.bitwise_and(thresh_h, cv.bitwise_and(thresh_s, thresh_v))
 
+    cv.imshow('Foreground Mask', combined_mask)
+    cv.waitKey(0) 
+    cv.destroyAllWindows()
+
     cap.release()
     cv.destroyAllWindows()
 
 # Call the function to get the camera intrinsics and extrinsics for each camera
-for camera_number in range(1, num_cameras+1):
-    cc.get_camera_intrinsics_and_extrinsics(camera_number)
-
+for camera_number in range(1, settings.num_cameras+1):
     background_video_path = f'data/cam{camera_number}/background.avi'
-        background_model = create_background_model_gmm(background_video_path)
-        
-        # display of the background model
-        if background_model is not None:
-            cv.imshow('Background Model', background_model)
-            cv.waitKey(0) 
-            cv.destroyAllWindows()
-        else:
-            print("Failed to create background model")
-        
-        video_path = f'data/cam{camera_number}/video.avi'
-        background_model_path = 'background_model.jpg'  # Update this path
-        background_subtraction_model = background_subtraction(video_path, background_model_path)
-        # display of the background subtraction
-        if background_subtraction_model is not None:
-            cv.imshow('Foreground Mask', combined_mask)
-            cv.waitKey(0) 
-            cv.destroyAllWindows()
-        else:
-            print("Failed to create background model")
+    background_model = create_background_model_gmm(background_video_path)
+    
+    # display of the background model
+    if background_model is not None:
+        cv.imshow('Background Model', background_model)
+        cv.waitKey(0) 
+        cv.destroyAllWindows()
+    else:
+        print("Failed to create background model")
+    
+    video_path = f'data/cam{camera_number}/video.avi'
+    background_model_path = f'data/cam{camera_number}/background_model.jpg'  # Update this path
+    background_subtraction_model = background_subtraction(video_path, background_model_path)
+    cc.get_camera_intrinsics_and_extrinsics(camera_number)

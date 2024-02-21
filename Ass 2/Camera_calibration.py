@@ -4,7 +4,7 @@ import glob
 import matplotlib.pyplot as plt
 import os
 import pickle
-import settings.py as settings
+import settings as settings
 
 def find_corners(fname, img, gray, objp, objpoints, imgpoints, criteria):
     global height
@@ -16,12 +16,12 @@ def find_corners(fname, img, gray, objp, objpoints, imgpoints, criteria):
         print("\tAuto-detect corners: ", fname)
         subpix = True
     else:
-        print("\tUnfortunately, the corners were not found automatically. Please select them manually.")
+        '''print("\tUnfortunately, the corners were not found automatically. Please select them manually.")
         print("\tManually select corners: ", fname)
         corners = manual_corners_selection(gray, img)
-        subpix = False
+        subpix = False'''
     
-    if fname == ("Webcam frame" or "Test_image.jpg") or ret == True: # TODO: Remove this condition, it is only to speed up testing
+    if (fname == ("Webcam frame" or "Test_image.jpg")) or (ret == True): # TODO: Remove this condition, it is only to speed up testing
         corners = add_corners_show_image(gray, img, corners, objp, objpoints, imgpoints, criteria, subpix)
 
     return corners
@@ -73,12 +73,9 @@ def manual_corners_selection(gray, img):
 
     :return: None (but save the four corners of the image in the global variable corners)
     '''
-    global click
-    global height
-    global width
 
     print("\tSelect 4 corners in the image in the order: top-left, top-right, bottom-right, bottom-left.")
-    print("\tThe corners should be selected in a clockwise order and the first selected side should be long ", width, " squares.")
+    print("\tThe corners should be selected in a clockwise order and the first selected side should be long ", settings.width, " squares.")
     input("\tPress Enter to continue...")
     print("\tClick on the image to select the corners...")
     correct_corners = False
@@ -115,14 +112,14 @@ def manual_corners_selection(gray, img):
             width_warp = x
     
     # Define the grid coordinates in the warped image
-    grid_points = np.zeros(((height+1) * (width+1), 2), dtype=np.float32)
+    grid_points = np.zeros(((settings.height+1) * (settings.width+1), 2), dtype=np.float32)
 
     # Generate grid coordinates
     index = 0
-    for j in range(width+1):
-        for i in range(height, -1, -1):
-            x = j * width_warp/width
-            y = i * height_warp/height
+    for j in range(settings.width+1):
+        for i in range(settings.height, -1, -1):
+            x = j * width_warp/settings.width
+            y = i * height_warp/settings.height
             grid_points[index] = (x, y)
             index += 1
 
@@ -133,7 +130,7 @@ def manual_corners_selection(gray, img):
 
     return corners
 
-def add_corners_show_image(gray, img, corners, subpix=True):
+def add_corners_show_image(gray, img, corners, objp, objpoints, imgpoints, criteria, subpix=True):
     '''
     add_corners_show_image: Function to add all the (inner) corners to the image and display it
 
@@ -149,13 +146,13 @@ def add_corners_show_image(gray, img, corners, subpix=True):
         # Improve the corner positions
         corners = cv.cornerSubPix(gray, corners, (11,11), (-1,-1), criteria)
         # Save the image points
-        imgpoints.append(corners2)
+        imgpoints.append(corners)
     else:
         imgpoints.append(corners)
 
     # Draw and display the corners
     cv.namedWindow('img', cv.WINDOW_NORMAL)
-    cv.drawChessboardCorners(img, (settings.height+1, settings.width+1), corners2, True)
+    cv.drawChessboardCorners(img, (settings.height+1, settings.width+1), corners, True)
     cv.imshow('img', img)
     cv.waitKey(settings.image_view_time)
     cv.destroyAllWindows()
@@ -183,10 +180,14 @@ def process_frame(fname, img, objp, objpoints, imgpoints, criteria, mtx, dist, a
     corners_test = find_corners(fname, img, gray, objp, objpoints, imgpoints, criteria)
 
     # Find the rotation and translation vectors.
-    ret, rvecs, tvecs = cv.solvePnP(objp, corners2, mtx, dist)
+    print(f"objp shape: {objp.shape}, dtype: {objp.dtype}")
+    print(f"corners_test shape: {corners_test.shape}, dtype: {corners_test.dtype}")
+    print(f"mtx shape: {mtx.shape}, dtype: {mtx.dtype}")
+    print(f"dist shape: {dist.shape}, dtype: {dist.dtype}")
+    ret, rvecs, tvecs = cv.solvePnP(objp, corners_test, mtx, dist)
     imgpts, jac = cv.projectPoints(axis, rvecs, tvecs, mtx, dist)
     imgpts_cube, jac = cv.projectPoints(cube_points, rvecs, tvecs, mtx, dist)
-    img = draw(img, corners2, imgpts)
+    img = draw(img, corners_test, imgpts)
     img = draw_cube(img, imgpts_cube, color=(255, 255, 0), thickness=3)
     return img, rvecs, tvecs
 
@@ -282,7 +283,7 @@ def plot_camera_positions(tvecs):
     # Connect the camera positions to the origin to show the relative positions
     for pos in camera_positions:
         ax.plot([0, pos[0]], [0, pos[1]], [0, pos[2]], 'gray', linestyle='--')
-    N = square_size * width
+    N = settings.square_size * settings.width
     X, Y = np.meshgrid(np.linspace(-N/2, N/2, 10), np.linspace(-N/2, N/2, 10))
     Z = np.zeros_like(X)
 
@@ -346,7 +347,7 @@ def draw_cube(img, imgpts_cube, color=(0, 255, 0), thickness=3):
 
     return img
 
-def get_images_from_video(camera_number, video_path, limit=None):
+def get_images_from_video(camera_number, video_path, test_image=False):
     # Open the video
     cap = cv.VideoCapture(video_path)
 
@@ -368,11 +369,14 @@ def get_images_from_video(camera_number, video_path, limit=None):
         if ret:
             # If frame_count modulo interval is 0, save the frame
             if frame_count % interval == 0:
-                frame_name = f'data/cam{camera_number}/frames/frame_{count}.jpg'
+                if test_image == True:
+                    frame_name = f'data/cam{camera_number}/Test_image.jpg'
+                else:
+                    frame_name = f'data/cam{camera_number}/frames/frame_{count}.jpg'
                 cv.imwrite(frame_name, frame)
                 count += 1
             frame_count += 1
-            if limit is not None and frame_count == limit
+            if test_image == True:
                 break
         else:
             break
@@ -430,7 +434,7 @@ def get_camera_intrinsics_and_extrinsics(camera_number):
     
     # If the test image is not found, get it from the video
     if not os.path.exists(f'data/cam{camera_number}/Test_image.jpg'):
-        get_images_from_video(camera_number, f'data/cam{camera_number}/checkerboard.avi', settings.interval=0, limit=1)
+        get_images_from_video(camera_number, f'data/cam{camera_number}/checkerboard.avi', test_image=True)
     # Define the test image to use for the static image test
     test_image = f'data/cam{camera_number}/Test_image.jpg'
 
@@ -446,7 +450,7 @@ def get_camera_intrinsics_and_extrinsics(camera_number):
     # If the images are not found, get them from the video
     if not(images):
         print("Images not found. Getting images from video...")
-        get_images_from_video(camera_number, f'data/cam{camera_number}/intrinsics.avi', settings.interval)
+        get_images_from_video(camera_number, f'data/cam{camera_number}/intrinsics.avi')
         images = glob.glob(f'data/cam{camera_number}/frames/*.jpg')
 
     print("\n\n")
