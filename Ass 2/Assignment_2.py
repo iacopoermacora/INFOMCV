@@ -79,6 +79,7 @@ def background_subtraction(video_path, background_model_path):
 
 # Call the function to get the camera intrinsics and extrinsics for each camera
 for camera_number in range(1, settings.num_cameras+1):
+    cc.get_camera_intrinsics_and_extrinsics(camera_number)
     background_video_path = f'data/cam{camera_number}/background.avi'
     background_model = create_background_model_gmm(background_video_path)
     
@@ -93,4 +94,3 @@ for camera_number in range(1, settings.num_cameras+1):
     video_path = f'data/cam{camera_number}/video.avi'
     background_model_path = f'data/cam{camera_number}/background_model.jpg'  # Update this path
     background_subtraction_model = background_subtraction(video_path, background_model_path)
-    cc.get_camera_intrinsics_and_extrinsics(camera_number)

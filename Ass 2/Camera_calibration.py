@@ -16,12 +16,13 @@ def find_corners(fname, img, gray, objp, objpoints, imgpoints, criteria):
         print("\tAuto-detect corners: ", fname)
         subpix = True
     else:
-        '''print("\tUnfortunately, the corners were not found automatically. Please select them manually.")
-        print("\tManually select corners: ", fname)
-        corners = manual_corners_selection(gray, img)
-        subpix = False'''
+        if fname.split('/')[-1] == "Test_image.jpg":
+            print("\tUnfortunately, the corners were not found automatically. Please select them manually.")
+            print("\tManually select corners: ", fname)
+            corners = manual_corners_selection(gray, img)
+            subpix = False
     
-    if (fname == ("Webcam frame" or "Test_image.jpg")) or (ret == True): # TODO: Remove this condition, it is only to speed up testing
+    if (fname.split('/')[-1] == "Test_image.jpg") or (ret == True): # TODO: Remove this condition, it is only to speed up testing
         corners = add_corners_show_image(gray, img, corners, objp, objpoints, imgpoints, criteria, subpix)
 
     return corners
@@ -36,31 +37,31 @@ def click_event(event, x, y, flags, params):
     :param flags: The flags (not used in this assignment)
     :param params: The parameters (img, manual_coordinates)
     '''
-    click = 0
-    img = params[0]
+    img, manual_coordinates, click = params
 
     # Checking for left mouse clicks 
     if event == cv.EVENT_LBUTTONDOWN: 
-        if click < 4:  # Ensure only 4 points are selected
-            params[1][click] = (x, y)
-            click += 1
+        if click[0] < 4:  # Ensure only 4 points are selected
+            manual_coordinates[click] = (x, y)
+            click[0] += 1
+            print("click", click[0])
             # Draw a small circle at the clicked point
-            cv.circle(img, (x, y), 10, (0, 0, 255), -1)
+            cv.circle(img, (x, y), 3, (0, 0, 255), -1)
             cv.namedWindow('img', cv.WINDOW_NORMAL)
             cv.imshow('img', img)
             print("\tCorner found at: ", x, y)
-        if click == 4:
+        if click[0] == 4:
             # font 
             font = cv.FONT_HERSHEY_SIMPLEX
             # org 
-            org = (100, 500) 
+            org = (10, 50) 
             # fontScale 
-            fontScale = 3
+            fontScale = 1
             # Blue color in BGR
             color = (255, 0, 0) 
             # Line thickness of 2 px
-            thickness = 10
-            cv.putText(img, 'Press any key to find all chessboard corners', org, font, fontScale, color, thickness, cv.LINE_AA)
+            thickness = 3
+            cv.putText(img, "Press any key to find \n all chessboard corners", org, font, fontScale, color, thickness, cv.LINE_AA)
             cv.namedWindow('img', cv.WINDOW_NORMAL)
             cv.imshow('img', img)
 
@@ -78,14 +79,14 @@ def manual_corners_selection(gray, img):
     print("\tThe corners should be selected in a clockwise order and the first selected side should be long ", settings.width, " squares.")
     input("\tPress Enter to continue...")
     print("\tClick on the image to select the corners...")
-    correct_corners = False
 
     manual_coordinates = np.zeros((4, 2), dtype=np.float32)
+    click = [0]
 
     # Display the image and wait for the user to select the corners
     cv.namedWindow('img', cv.WINDOW_NORMAL)
     cv.imshow('img', img)
-    params = [img, manual_coordinates]
+    params = [img, manual_coordinates, click]
     cv.setMouseCallback('img', click_event, params) # Limit to 4 clicks
     cv.waitKey(0) # Press any key to continue after 4 clicks
     cv.destroyAllWindows()
@@ -180,15 +181,11 @@ def process_frame(fname, img, objp, objpoints, imgpoints, criteria, mtx, dist, a
     corners_test = find_corners(fname, img, gray, objp, objpoints, imgpoints, criteria)
 
     # Find the rotation and translation vectors.
-    print(f"objp shape: {objp.shape}, dtype: {objp.dtype}")
-    print(f"corners_test shape: {corners_test.shape}, dtype: {corners_test.dtype}")
-    print(f"mtx shape: {mtx.shape}, dtype: {mtx.dtype}")
-    print(f"dist shape: {dist.shape}, dtype: {dist.dtype}")
     ret, rvecs, tvecs = cv.solvePnP(objp, corners_test, mtx, dist)
     imgpts, jac = cv.projectPoints(axis, rvecs, tvecs, mtx, dist)
     imgpts_cube, jac = cv.projectPoints(cube_points, rvecs, tvecs, mtx, dist)
     img = draw(img, corners_test, imgpts)
-    img = draw_cube(img, imgpts_cube, color=(255, 255, 0), thickness=3)
+    img = draw_cube(img, imgpts_cube, color=(255, 255, 0), thickness=1)
     return img, rvecs, tvecs
 
 def validate_calibration(objpoints, imgpoints, rvecs, tvecs, mtx, dist):
@@ -312,12 +309,12 @@ def draw(img, corners2, imgpts):
     
     corner = tupleOfInts(corners2[0].ravel())
 
-    img = cv.line(img, corner, tupleOfInts(imgpts[0].ravel()), (255,0,0), 5)
-    img = cv.line(img, corner, tupleOfInts(imgpts[1].ravel()), (0,255,0), 5)
-    img = cv.line(img, corner, tupleOfInts(imgpts[2].ravel()), (0,0,255), 5)
+    img = cv.line(img, corner, tupleOfInts(imgpts[0].ravel()), (255,0,0), 1)
+    img = cv.line(img, corner, tupleOfInts(imgpts[1].ravel()), (0,255,0), 1)
+    img = cv.line(img, corner, tupleOfInts(imgpts[2].ravel()), (0,0,255), 1)
     return img
 
-def draw_cube(img, imgpts_cube, color=(0, 255, 0), thickness=3):
+def draw_cube(img, imgpts_cube, color=(0, 255, 0), thickness=1):
     '''
     draw_cube: Function to draw the cube on the image
 
