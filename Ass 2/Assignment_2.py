@@ -291,4 +291,43 @@ def manual_segmentation_comparison(video_path, background_model_path, manual_mas
 
     return optimal_thresholds
     
-
+# Call the function to get the camera intrinsics and extrinsics for each camera
+for camera_number in range(1, settings.num_cameras+1):
+    cc.get_camera_intrinsics_and_extrinsics(camera_number)
+    # background model
+    background_video_path = f'data/cam{camera_number}/background.avi'
+    background_model = create_background_model_gmm(background_video_path)
+    
+    # display of the background model
+    if background_model is not None:
+        cv.imshow('Background Model', background_model)
+        cv.waitKey(0) 
+        cv.destroyAllWindows()
+    else:
+        print("Failed to create background model")
+    
+    # background subtraction
+    #video_frame_path = cc.get_images_from_video(camera_number, f'data/cam{camera_number}/video.avi', test_image=True)
+    #video_frame = cv.imread(video_frame_path)
+    video_path = f'data/cam{camera_number}/video.avi'
+    background_model_path = f'data/cam{camera_number}/background_model.jpg' 
+    # Deprecated (maybe)
+    # background_subtraction_model = background_subtraction(video_path, background_model_path)
+    
+    # manual subtraction
+    frame_path = f'data/cam{camera_number}/actual_frame.jpg'
+    frame = cv.imread(frame_path)  
+    manual_mask_path = f'data/cam{camera_number}/manual_mask.jpg'   
+    '''threshold_ranges = {
+        'hue': range(0, 256, 5),
+        'saturation': range(0, 256, 5),
+        'value': range(0, 256, 5)
+    }'''
+    initial_ranges = {
+        'hue': range(0, 256, 50),
+        'saturation': range(0, 256, 50),
+        'value': range(0, 256, 50)
+    }
+    #optimal_thresholds = manual_segmentation_comparison(video_path, background_model_path, manual_mask_path, threshold_ranges)
+    optimal_thresholds = manual_segmentation_comparison(video_path, background_model_path, manual_mask_path, initial_ranges, initial_step=50, refinement_steps=[10, 5])
+    print(f'Optimal thresholds: Hue={optimal_thresholds[0]}, Saturation={optimal_thresholds[1]}, Value={optimal_thresholds[2]}')
