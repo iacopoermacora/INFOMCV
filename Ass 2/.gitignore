@@ -1,7 +1,3 @@
-<<<<<<< Updated upstream
-data/
-__pycache__
-=======
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -138,4 +134,3 @@ dmypy.json
 # Everything else
 data/
 __pycache__/
->>>>>>> Stashed changes

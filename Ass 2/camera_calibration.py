@@ -429,6 +429,9 @@ def write_camera_parameters(camera_number, camera_matrix, dist_coeffs, rvecs, tv
 
 def get_camera_intrinsics_and_extrinsics(camera_number):
     
+    if os.path.exists(f'data/cam{camera_number}/config.xml'):
+        return
+    
     # If the test image is not found, get it from the video
     if not os.path.exists(f'data/cam{camera_number}/Test_image.jpg'):
         get_images_from_video(camera_number, f'data/cam{camera_number}/checkerboard.avi', test_image=True)
@@ -443,6 +446,9 @@ def get_camera_intrinsics_and_extrinsics(camera_number):
     # Variable to store the image size
     image_size = None
 
+    if not os.path.exists(f'data/cam{camera_number}/frames'):
+        os.makedirs(f'data/cam{camera_number}/frames')
+        
     images = glob.glob(f'data/cam{camera_number}/frames/*.jpg')
     # If the images are not found, get them from the video
     if not(images):

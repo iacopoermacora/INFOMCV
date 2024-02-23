@@ -6,19 +6,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 
-def background_subtraction():
-    cap = cv.VideoCapture('vtest.avi')
-    fgbg = cv.bgsegm.createBackgroundSubtractorMOG()
-    while(1):
-        ret, frame = cap.read()
-        fgmask = fgbg.apply(frame)
-        cv.imshow('frame',fgmask)
-        k = cv.waitKey(30) & 0xff
-        if k == 27:
-            break
-    cap.release()
-    cv.destroyAllWindows()
-
 def create_background_model_gmm(video_path):
     cap = cv.VideoCapture(video_path)
     if not cap.isOpened():
@@ -86,104 +73,26 @@ def background_subtraction(video_path, background_model_path, h_thresh, s_thresh
 
     return combined_mask
 
-'''def manual_segmentation_comparison(video_path, background_model_path, manual_mask_path, threshold_ranges):
-    # Load the manual segmentation mask
-    manual_mask = cv.imread(manual_mask_path, 0)
-
-    # Initialize variables for the optimal thresholds and their score
+def manual_segmentation_comparison(video_path, background_model_path, manual_mask_path, steps=[50, 10, 5, 1]):
     optimal_thresholds = None
     optimal_score = float('inf')
+    previous_step = 255
+    optimal_thresholds = (0, 0, 0)
 
-    # Initialize containers for scores
-    hue_scores = np.zeros(256)
-    saturation_scores = np.zeros(256)
-    value_scores = np.zeros(256)
-    counts_hue = np.zeros(256)
-    counts_saturation = np.zeros(256)
-    counts_value = np.zeros(256)
-
-    hue_counter = 0
-    saturation_counter = 0
-    value_counter = 0
-
-    # Iterate over the range of thresholds for each channel
-    for h_thresh in tqdm(threshold_ranges['hue'], desc="hue"):
-        saturation_counter = 0
-        for s_thresh in tqdm(threshold_ranges['saturation'], desc="saturation", leave=False):
-            value_counter = 0
-            for v_thresh in tqdm(threshold_ranges['value'], desc="value", leave=False):
-                # Segment the frame using the current set of thresholds
-                segmented = background_subtraction(video_path, background_model_path, h_thresh, s_thresh, v_thresh, thresh_search=True)
-
-                # Compare the segmentation with the manual mask using XOR
-                xor_result = cv.bitwise_xor(segmented, manual_mask)
-                score = cv.countNonZero(xor_result)
-
-                # Accumulate scores
-                hue_scores[hue_counter] += score
-                saturation_scores[saturation_counter] += score
-                value_scores[value_counter] += score
-                counts_hue[hue_counter] += 1
-                counts_saturation[saturation_counter] += 1
-                counts_value[value_counter] += 1
-
-                # Update optimal thresholds if current score is better (lower)
-                if score < optimal_score:
-                    optimal_score = score
-                    optimal_thresholds = (h_thresh, s_thresh, v_thresh)
-
-                value_counter +=1
-            saturation_counter += 1
-        hue_counter += 1
-    
-    # Calculate average scores
-    print("hue scores", hue_scores)
-    print("sat scores", saturation_scores)
-    print("val scores", value_scores)
-    print("hue counts", counts_hue)
-    print("sat counts", counts_saturation)
-    print("val counts", counts_value)
-    avg_hue_scores = hue_scores / counts_hue
-    avg_saturation_scores = saturation_scores / counts_saturation
-    avg_value_scores = value_scores / counts_value
-
-    # Plotting
-    plt.figure(figsize=(10, 6))
-    plt.plot(range(256), avg_hue_scores, label='Hue')
-    plt.plot(range(256), avg_saturation_scores, label='Saturation')
-    plt.plot(range(256), avg_value_scores, label='Value')
-    plt.title('Average Score Evolution across Hue, Saturation, and Value')
-    plt.xlabel('Threshold Value')
-    plt.ylabel('Average Score')
-    plt.legend()
-    plt.grid(True)
-    plt.show()
-
-    return optimal_thresholds'''
-
-def manual_segmentation_comparison(video_path, background_model_path, manual_mask_path, initial_ranges, initial_step=50, refinement_steps=[10, 5]):
-    optimal_thresholds = None
-    optimal_score = float('inf')
-
-    # Ensure the initial_ranges dictionary includes a start and end for each channel, e.g., {'hue': (0, 255), ...}
-    current_ranges = initial_ranges
-    current_step = initial_step
-
-    for refinement_step in refinement_steps + [1]:  # Ensure a final fine-grained search
+    for current_step in steps:  # Ensure a final fine-grained search
         print(f"\nSearching with step size {current_step}")
-        start_time = time.time()  # Start timing the search iteration
 
         # Adjust the search ranges based on the previous optimal thresholds
         search_ranges = {
-            'hue': range(max(0, current_ranges['hue'][0]), min(256, current_ranges['hue'][1] + current_step), current_step),
-            'saturation': range(max(0, current_ranges['saturation'][0]), min(256, current_ranges['saturation'][1] + current_step), current_step),
-            'value': range(max(0, current_ranges['value'][0]), min(256, current_ranges['value'][1] + current_step), current_step),
+            'hue': range(max(0, optimal_thresholds[0] - previous_step), min(256, optimal_thresholds[0] + previous_step), current_step),
+            'saturation': range(max(0, optimal_thresholds[1] - previous_step), min(256, optimal_thresholds[1] + previous_step), current_step),
+            'value': range(max(0, optimal_thresholds[2] - previous_step), min(256, optimal_thresholds[2] + previous_step), current_step),
         }
 
         # Nested loops for searching threshold values, wrapped with tqdm for progress tracking
-        for h_thresh in tqdm(range(*search_ranges['hue']), desc="Hue Progress"):
-            for s_thresh in tqdm(range(*search_ranges['saturation']), desc="Saturation Progress", leave=False):
-                for v_thresh in tqdm(range(*search_ranges['value']), desc="Value Progress", leave=False):
+        for h_thresh in tqdm(search_ranges['hue'], desc="Hue Progress"):
+            for s_thresh in tqdm(search_ranges['saturation'], desc="Saturation Progress", leave=False):
+                for v_thresh in tqdm(search_ranges['value'], desc="Value Progress", leave=False):
                     segmented = background_subtraction(video_path, background_model_path, h_thresh, s_thresh, v_thresh, thresh_search=True)
                     xor_result = cv.bitwise_xor(segmented, cv.imread(manual_mask_path, 0))
                     score = cv.countNonZero(xor_result)
@@ -194,17 +103,12 @@ def manual_segmentation_comparison(video_path, background_model_path, manual_mas
 
         # Print the optimal thresholds found in this iteration
         print(f"Optimal thresholds after refinement with step {current_step}: Hue={optimal_thresholds[0]}, Saturation={optimal_thresholds[1]}, Value={optimal_thresholds[2]}")
-        print(f"Iteration took {time.time() - start_time:.2f} seconds.")
-
-        # Update search ranges for the next iteration
-        current_ranges = {
-            'hue': (max(0, optimal_thresholds[0] - current_step), optimal_thresholds[0] + current_step),
-            'saturation': (max(0, optimal_thresholds[1] - current_step), optimal_thresholds[1] + current_step),
-            'value': (max(0, optimal_thresholds[2] - current_step), optimal_thresholds[2] + current_step),
-        }
 
         # Decrease step size for the next iteration
-        current_step = refinement_step
+        previous_step = current_step
+
+    print(f'Optimal thresholds: Hue={optimal_thresholds[0]}, Saturation={optimal_thresholds[1]}, Value={optimal_thresholds[2]}')
+    segmented = background_subtraction(video_path, background_model_path, optimal_thresholds[0], optimal_thresholds[1], optimal_thresholds[2])
 
     return optimal_thresholds
 
@@ -243,53 +147,6 @@ def construct_lookup_table(voxel_volume, calibration_data, num_views):
                     lookup_table.append(((xv, yv, zv), c, img_point))
 
     return lookup_table
-
-def manual_segmentation_comparison(video_path, background_model_path, manual_mask_path, initial_ranges, initial_step=50, refinement_steps=[10, 5]):
-    optimal_thresholds = None
-    optimal_score = float('inf')
-
-    # Ensure the initial_ranges dictionary includes a start and end for each channel, e.g., {'hue': (0, 255), ...}
-    current_ranges = initial_ranges
-    current_step = initial_step
-
-    for refinement_step in refinement_steps + [1]:  # Ensure a final fine-grained search
-        print(f"\nSearching with step size {current_step}")
-        start_time = time.time()  # Start timing the search iteration
-
-        # Adjust the search ranges based on the previous optimal thresholds
-        search_ranges = {
-            'hue': range(max(0, current_ranges['hue'][0]), min(256, current_ranges['hue'][1] + current_step), current_step),
-            'saturation': range(max(0, current_ranges['saturation'][0]), min(256, current_ranges['saturation'][1] + current_step), current_step),
-            'value': range(max(0, current_ranges['value'][0]), min(256, current_ranges['value'][1] + current_step), current_step),
-        }
-
-        # Nested loops for searching threshold values, wrapped with tqdm for progress tracking
-        for h_thresh in tqdm(range(*search_ranges['hue']), desc="Hue Progress"):
-            for s_thresh in tqdm(range(*search_ranges['saturation']), desc="Saturation Progress", leave=False):
-                for v_thresh in tqdm(range(*search_ranges['value']), desc="Value Progress", leave=False):
-                    segmented = background_subtraction(video_path, background_model_path, h_thresh, s_thresh, v_thresh, thresh_search=True)
-                    xor_result = cv.bitwise_xor(segmented, cv.imread(manual_mask_path, 0))
-                    score = cv.countNonZero(xor_result)
-
-                    if score < optimal_score:
-                        optimal_score = score
-                        optimal_thresholds = (h_thresh, s_thresh, v_thresh)
-
-        # Print the optimal thresholds found in this iteration
-        print(f"Optimal thresholds after refinement with step {current_step}: Hue={optimal_thresholds[0]}, Saturation={optimal_thresholds[1]}, Value={optimal_thresholds[2]}")
-        print(f"Iteration took {time.time() - start_time:.2f} seconds.")
-
-        # Update search ranges for the next iteration
-        current_ranges = {
-            'hue': (max(0, optimal_thresholds[0] - current_step), optimal_thresholds[0] + current_step),
-            'saturation': (max(0, optimal_thresholds[1] - current_step), optimal_thresholds[1] + current_step),
-            'value': (max(0, optimal_thresholds[2] - current_step), optimal_thresholds[2] + current_step),
-        }
-
-        # Decrease step size for the next iteration
-        current_step = refinement_step
-
-    return optimal_thresholds
     
 # Call the function to get the camera intrinsics and extrinsics for each camera
 for camera_number in range(1, settings.num_cameras+1):
@@ -306,28 +163,9 @@ for camera_number in range(1, settings.num_cameras+1):
     else:
         print("Failed to create background model")
     
-    # background subtraction
-    #video_frame_path = cc.get_images_from_video(camera_number, f'data/cam{camera_number}/video.avi', test_image=True)
-    #video_frame = cv.imread(video_frame_path)
-    video_path = f'data/cam{camera_number}/video.avi'
-    background_model_path = f'data/cam{camera_number}/background_model.jpg' 
-    # Deprecated (maybe)
-    # background_subtraction_model = background_subtraction(video_path, background_model_path)
-    
     # manual subtraction
-    frame_path = f'data/cam{camera_number}/actual_frame.jpg'
-    frame = cv.imread(frame_path)  
     manual_mask_path = f'data/cam{camera_number}/manual_mask.jpg'   
-    '''threshold_ranges = {
-        'hue': range(0, 256, 5),
-        'saturation': range(0, 256, 5),
-        'value': range(0, 256, 5)
-    }'''
-    initial_ranges = {
-        'hue': range(0, 256, 50),
-        'saturation': range(0, 256, 50),
-        'value': range(0, 256, 50)
-    }
-    #optimal_thresholds = manual_segmentation_comparison(video_path, background_model_path, manual_mask_path, threshold_ranges)
-    optimal_thresholds = manual_segmentation_comparison(video_path, background_model_path, manual_mask_path, initial_ranges, initial_step=50, refinement_steps=[10, 5])
-    print(f'Optimal thresholds: Hue={optimal_thresholds[0]}, Saturation={optimal_thresholds[1]}, Value={optimal_thresholds[2]}')
+    video_path = f'data/cam{camera_number}/video.avi'
+    background_model_path = f'data/cam{camera_number}/background_model.jpg'
+    optimal_thresholds = manual_segmentation_comparison(video_path, background_model_path, manual_mask_path, steps=[50, 10, 5, 1])
+
