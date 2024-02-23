@@ -40,7 +40,7 @@ def get_cam_positions():
         _, _, rvecs, tvecs = a2.read_camera_parameters(c)
         print(rvecs, tvecs)
         rotM = cv.Rodrigues(rvecs)[0]
-        cameraposition[(c-1)] = (-np.matrix(rotM).T * np.matrix(tvecs)) #tvecs /settings.square_size ???
+        cameraposition[(c-1)] = (-np.matrix(rotM).T * np.matrix(tvecs)) # tvecs /settings.square_size ???
 
     cameraposition2 = [[cameraposition[0][0][0], -cameraposition[0][2][0], cameraposition[0][1][0]],
                        [cameraposition[1][0][0], -cameraposition[1][2][0], cameraposition[1][1][0]],

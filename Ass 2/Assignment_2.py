@@ -61,8 +61,43 @@ def background_subtraction(video_path, background_model_path, h_thresh, s_thresh
         # Combine the thresholds 
         combined_mask = cv.bitwise_and(thresh_v, cv.bitwise_and(thresh_h, thresh_s))
 
+        # # Dilation to fill in gaps
+        # kernel = np.ones((3, 3), np.uint8)
+        # combined_mask = cv.dilate(combined_mask, kernel, iterations=1)
+
+        # # BLOB DETECTION AND REMOVAL
+        # # Find contours
+        # contours, _ = cv.findContours(combined_mask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+
+        # # Filter contours based on area to identify blobs
+        # min_blob_area = 50  # Adjust this threshold as needed
+        # blobs = [cnt for cnt in contours if cv.contourArea(cnt) > min_blob_area]
+
+        # # Draw the detected blobs
+        # blob_mask = np.zeros_like(combined_mask)
+        # cv.drawContours(blob_mask, blobs, -1, (255), thickness=cv.FILLED)
+
+        # combined_mask = blob_mask
+        
         if thresh_search == True:
             break
+        # else:
+        #     cv.imshow('Foreground Mask before', combined_mask)
+        #     cv.waitKey(0)
+        #     # Perform graph cuts using GrabCut algorithm
+        #     mask = np.zeros(frame.shape[:2], np.uint8)
+        #     converted_mask = np.zeros_like(combined_mask, dtype=np.uint8)
+        #     # Set background regions to GC_BGD
+        #     converted_mask[combined_mask == 0] = cv.GC_FGD
+        #     # Set foreground regions to GC_FGD
+        #     converted_mask[combined_mask == 255] = cv.GC_BGD
+        #     bgdModel = np.zeros((1,65),np.float64)
+        #     fgdModel = np.zeros((1,65),np.float64)
+        #     rect = (0, 0, frame.shape[1]-1, frame.shape[0]-1)  # Entire frame region
+        #     mask, _, _ = cv.grabCut(frame, converted_mask, rect, bgdModel, fgdModel, 5, cv.GC_INIT_WITH_MASK)
+        #     # Modify the mask to get the foreground
+        #     combined_mask = np.where((mask==2)|(mask==0), 255, 0).astype('uint8')
+        #     break
 
     if thresh_search == False:
         cv.imshow('Foreground Mask', combined_mask)
@@ -156,12 +191,12 @@ for camera_number in range(1, settings.num_cameras+1):
     background_model = create_background_model_gmm(background_video_path)
     
     # display of the background model
-    if background_model is not None:
-        cv.imshow('Background Model', background_model)
-        cv.waitKey(0) 
-        cv.destroyAllWindows()
-    else:
-        print("Failed to create background model")
+    # if background_model is not None:
+    #     cv.imshow('Background Model', background_model)
+    #     cv.waitKey(0) 
+    #     cv.destroyAllWindows()
+    # else:
+    #     print("Failed to create background model")
     
     # manual subtraction
     manual_mask_path = f'data/cam{camera_number}/manual_mask.jpg'   
