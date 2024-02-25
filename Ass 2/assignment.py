@@ -1,12 +1,14 @@
 import glm
 import random
 import numpy as np
+from tqdm import tqdm
 import Assignment_2 as a2
 import settings as settings
 import cv2 as cv
+import pickle
+import os
 
 block_size = 1.0
-
 
 def generate_grid(width, depth):
     # Generates the floor grid locations
@@ -23,12 +25,50 @@ def set_voxel_positions(width, height, depth):
     # Generates random voxel locations
     # TODO: You need to calculate proper voxel arrays instead of random ones.
     data, colors = [], []
+    foreground_mask = []
+    for n_camera in range(1, settings.num_cameras+1):
+        foreground_mask.append(cv.imread(f'data/cam{n_camera}/foreground_mask.jpg', 0))
+    voxel_volume = np.zeros((width, height, depth, settings.num_cameras), dtype=bool)
+    lookup_table = create_lookup_table(voxel_volume)
+
+    visible_per_camera = np.zeros(settings.num_cameras)
+    # Iterate over pixels in the lookup table
+    for voxel_coords, n_camera, pixel_coords in lookup_table:
+        # Check if pixel is foreground in the corresponding view
+        if is_foreground(pixel_coords, foreground_mask[n_camera-1]):
+            # Mark the voxel visible for this view
+            # print(f'Voxel at {voxel_coords} is visible in camera {n_camera}')
+            # if n_camera == 1 or n_camera == 2 or n_camera == 3 or n_camera == 4:
+            #     data.append([voxel_coords[0]*block_size - width/2, voxel_coords[2]*block_size, voxel_coords[1]*block_size - depth/2])
+            #     colors.append([voxel_coords[0] / width, voxel_coords[2] / depth, voxel_coords[1] / height])
+            visible_per_camera[n_camera-1] += 1
+            voxel_volume[voxel_coords[0], voxel_coords[1], voxel_coords[2], (n_camera-1)] = True
+    
+    # TEST CODE TO COUNT VISIBLE VOXELS PER CAMERA
+    for c in range(settings.num_cameras):
+        print(f"Camera {c+1}: {visible_per_camera[c]} visible voxels")
+
+    visible_all_cameras = 0
+    # Iterate over voxels to mark them visible if visible in all views
     for x in range(width):
         for y in range(height):
             for z in range(depth):
-                if random.randint(0, 1000) < 5:
-                    data.append([x*block_size - width/2, y*block_size, z*block_size - depth/2])
+                if np.all(voxel_volume[x, y, z, :]):
+                    # voxel_volume[x, y, z] = True
+                    # print(f'Voxel at {x, y, z} is visible in all views')
+                    visible_all_cameras += 1
+                    data.append([x*block_size - width/2, z*block_size, y*block_size - depth/2])
                     colors.append([x / width, z / depth, y / height])
+    
+    
+    print(f"Total voxels visible in all cameras: {visible_all_cameras}")
+
+    # for x in range(width):
+    #     for y in range(height):
+    #         for z in range(depth):
+    #             if random.randint(0, 1000) < 5:
+    #                 data.append([x*block_size - width/2, y*block_size, z*block_size - depth/2])
+    #                 colors.append([x / width, z / depth, y / height])
     return data, colors
 
 
@@ -62,3 +102,58 @@ def get_cam_rotation_matrices():
         cam_rotations[c] = glm.rotate(cam_rotations[c], cam_angles[c][1] * np.pi / 180, [0, 1, 0])
         cam_rotations[c] = glm.rotate(cam_rotations[c], cam_angles[c][2] * np.pi / 180, [0, 0, 1])
     return cam_rotations
+
+
+# Our extra functions
+
+def create_lookup_table(voxel_volume):
+    lookup_table = []
+
+    # Retrieve the variable from the pickle file if lookup table is already created TODO: Remove!!!
+    if os.path.exists('lookup_table.pkl'):
+        with open('lookup_table.pkl', 'rb') as f:
+            return pickle.load(f)
+        
+    (heightImg, widthImg) = cv.imread(f'data/cam1/foreground_mask.jpg', 0).shape # TODO: Generalise to all the cameras but without having it do it for each iteration?
+    for x in tqdm(range(voxel_volume.shape[0]), desc="Lookup Table Progress"):
+        for y in range(voxel_volume.shape[1]):
+            for z in range(voxel_volume.shape[2]):
+                voxel_point = np.array([[(x*block_size - voxel_volume.shape[0]/2), (y*block_size - voxel_volume.shape[1]/2), -z*block_size]], dtype=np.float32)
+
+                for c in range(1, settings.num_cameras+1):
+                    camera_matrix, distortion_coeffs, rotation_vector, translation_vector = a2.read_camera_parameters(c)
+                    # Project voxel point onto image plane of camera c
+                    img_point, _ = cv.projectPoints(voxel_point, rotation_vector, translation_vector, camera_matrix, distortion_coeffs)
+                    img_point = np.reshape(img_point, 2)
+                    img_point = img_point[::-1]
+                    
+
+                    # Only accept pixels inside the image
+                    if 0 <= img_point[0] < heightImg and 0 <= img_point[1] < widthImg:
+                        # Store {XV, YV, ZV}, c and {xim, yim} in the look-up table
+                        lookup_table.append(((x, y, z), c, img_point))
+
+
+    # TEST CODE TO COUNT ENTRIES IN LOOKUP TABLE
+    # Dictionary to store counts for each camera
+    camera_counts = np.zeros(settings.num_cameras)
+    
+    # Iterate over the lookup table
+    for entry in lookup_table:
+        (_, c, _) = entry
+        # Increment the count for the camera index
+        camera_counts[c-1] += 1
+    
+    for c in range(settings.num_cameras):
+        print(f"Camera {c+1}: {camera_counts[c]} entries")
+
+    # Save the variable to a pickle file
+    with open('lookup_table.pkl', 'wb') as f:
+        pickle.dump(lookup_table, f)
+
+    return lookup_table
+
+def is_foreground(pixel_coords, foreground_mask):
+    # Check if pixel is foreground in the corresponding view
+    y, x = int(pixel_coords[0]), int(pixel_coords[1]) # OpenCV uses (y, x) indexing
+    return foreground_mask[y, x] == 255

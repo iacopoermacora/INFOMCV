@@ -3,7 +3,7 @@
     "debug_mode": false,
     "fullscreen": false,
     "world_width": 128,
-    "world_height": 64,
+    "world_height": 128,
     "world_depth": 128,
     "window_width": 1280,
     "window_height": 720,

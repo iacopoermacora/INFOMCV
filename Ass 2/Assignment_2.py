@@ -41,63 +41,60 @@ def background_subtraction(video_path, background_model_path, h_thresh, s_thresh
         print("Error opening video file")
         return
 
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
+    ret, frame = cap.read() # TODO: I removed the loop, this way it is done only on the first image, I am not sure if this is the correct way to do it or if we need to use thw whole video in the future
 
-        # Convert frame to HSV
-        frame_hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
+    # Convert frame to HSV
+    frame_hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
 
-        # Calculate the absolute difference
-        diff = cv.absdiff(frame_hsv, background_model_hsv)
+    # Calculate the absolute difference
+    diff = cv.absdiff(frame_hsv, background_model_hsv)
 
-       # Threshold for each channel
-        _, thresh_h = cv.threshold(diff[:,:,0], h_thresh, 255, cv.THRESH_BINARY) 
-        _, thresh_s = cv.threshold(diff[:,:,1], s_thresh, 255, cv.THRESH_BINARY) 
-        _, thresh_v = cv.threshold(diff[:,:,2], v_thresh, 255, cv.THRESH_BINARY)
+    # Threshold for each channel
+    _, thresh_h = cv.threshold(diff[:,:,0], h_thresh, 255, cv.THRESH_BINARY) 
+    _, thresh_s = cv.threshold(diff[:,:,1], s_thresh, 255, cv.THRESH_BINARY) 
+    _, thresh_v = cv.threshold(diff[:,:,2], v_thresh, 255, cv.THRESH_BINARY)
 
 
-        # Combine the thresholds 
-        combined_mask = cv.bitwise_and(thresh_v, cv.bitwise_and(thresh_h, thresh_s))
+    # Combine the thresholds 
+    combined_mask = cv.bitwise_and(thresh_v, cv.bitwise_and(thresh_h, thresh_s))
 
-        # # Dilation to fill in gaps
-        # kernel = np.ones((3, 3), np.uint8)
-        # combined_mask = cv.dilate(combined_mask, kernel, iterations=1)
+    # # Dilation to fill in gaps
+    # kernel = np.ones((3, 3), np.uint8)
+    # combined_mask = cv.dilate(combined_mask, kernel, iterations=1)
 
-        # # BLOB DETECTION AND REMOVAL
-        # # Find contours
-        # contours, _ = cv.findContours(combined_mask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+    # # BLOB DETECTION AND REMOVAL
+    # # Find contours
+    # contours, _ = cv.findContours(combined_mask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
 
-        # # Filter contours based on area to identify blobs
-        # min_blob_area = 50  # Adjust this threshold as needed
-        # blobs = [cnt for cnt in contours if cv.contourArea(cnt) > min_blob_area]
+    # # Filter contours based on area to identify blobs
+    # min_blob_area = 50  # Adjust this threshold as needed
+    # blobs = [cnt for cnt in contours if cv.contourArea(cnt) > min_blob_area]
 
-        # # Draw the detected blobs
-        # blob_mask = np.zeros_like(combined_mask)
-        # cv.drawContours(blob_mask, blobs, -1, (255), thickness=cv.FILLED)
+    # # Draw the detected blobs
+    # blob_mask = np.zeros_like(combined_mask)
+    # cv.drawContours(blob_mask, blobs, -1, (255), thickness=cv.FILLED)
 
-        # combined_mask = blob_mask
-        
-        if thresh_search == True:
-            break
-        # else:
-        #     cv.imshow('Foreground Mask before', combined_mask)
-        #     cv.waitKey(0)
-        #     # Perform graph cuts using GrabCut algorithm
-        #     mask = np.zeros(frame.shape[:2], np.uint8)
-        #     converted_mask = np.zeros_like(combined_mask, dtype=np.uint8)
-        #     # Set background regions to GC_BGD
-        #     converted_mask[combined_mask == 0] = cv.GC_FGD
-        #     # Set foreground regions to GC_FGD
-        #     converted_mask[combined_mask == 255] = cv.GC_BGD
-        #     bgdModel = np.zeros((1,65),np.float64)
-        #     fgdModel = np.zeros((1,65),np.float64)
-        #     rect = (0, 0, frame.shape[1]-1, frame.shape[0]-1)  # Entire frame region
-        #     mask, _, _ = cv.grabCut(frame, converted_mask, rect, bgdModel, fgdModel, 5, cv.GC_INIT_WITH_MASK)
-        #     # Modify the mask to get the foreground
-        #     combined_mask = np.where((mask==2)|(mask==0), 255, 0).astype('uint8')
-        #     break
+    # combined_mask = blob_mask
+    
+    # if thresh_search == True:
+    #     break
+    # else:
+    #     cv.imshow('Foreground Mask before', combined_mask)
+    #     cv.waitKey(0)
+    #     # Perform graph cuts using GrabCut algorithm
+    #     mask = np.zeros(frame.shape[:2], np.uint8)
+    #     converted_mask = np.zeros_like(combined_mask, dtype=np.uint8)
+    #     # Set background regions to GC_BGD
+    #     converted_mask[combined_mask == 0] = cv.GC_FGD
+    #     # Set foreground regions to GC_FGD
+    #     converted_mask[combined_mask == 255] = cv.GC_BGD
+    #     bgdModel = np.zeros((1,65),np.float64)
+    #     fgdModel = np.zeros((1,65),np.float64)
+    #     rect = (0, 0, frame.shape[1]-1, frame.shape[0]-1)  # Entire frame region
+    #     mask, _, _ = cv.grabCut(frame, converted_mask, rect, bgdModel, fgdModel, 5, cv.GC_INIT_WITH_MASK)
+    #     # Modify the mask to get the foreground
+    #     combined_mask = np.where((mask==2)|(mask==0), 255, 0).astype('uint8')
+    #     break
 
     if thresh_search == False:
         cv.imshow('Foreground Mask', combined_mask)
@@ -105,10 +102,11 @@ def background_subtraction(video_path, background_model_path, h_thresh, s_thresh
 
     cap.release()
     cv.destroyAllWindows()
+    cv.waitKey(1)
 
     return combined_mask
 
-def manual_segmentation_comparison(video_path, background_model_path, manual_mask_path, steps=[50, 10, 5, 1]):
+def manual_segmentation_comparison(video_path, background_model_path, manual_mask_path, camera_number, steps=[50, 10, 5, 1]):
     optimal_thresholds = None
     optimal_score = float('inf')
     previous_step = 255
@@ -145,6 +143,8 @@ def manual_segmentation_comparison(video_path, background_model_path, manual_mas
     print(f'Optimal thresholds: Hue={optimal_thresholds[0]}, Saturation={optimal_thresholds[1]}, Value={optimal_thresholds[2]}')
     segmented = background_subtraction(video_path, background_model_path, optimal_thresholds[0], optimal_thresholds[1], optimal_thresholds[2])
 
+    cv.imwrite(f'data/cam{camera_number}/foreground_mask.jpg', segmented)
+
     return optimal_thresholds
 
 def read_camera_parameters(camera_number):
@@ -163,27 +163,9 @@ def read_camera_parameters(camera_number):
     fs.release()
 
     return camera_matrix, dist_coeffs, rvecs, tvecs
-
-# Step 2: Construct Lookup Table
-def construct_lookup_table(voxel_volume, calibration_data, num_views):
-    lookup_table = []
-
-    for xv in range(voxel_volume.shape[0]):
-        for yv in range(voxel_volume.shape[1]):
-            for zv in range(voxel_volume.shape[2]):
-                voxel_point = np.array([[xv, yv, zv]], dtype=np.float32)
-
-                for c in range(num_views):
-                    camera_matrix, distortion_coeffs, rotation_vector, translation_vector = calibration_data[c]
-                    # Project voxel point onto image plane of camera c
-                    img_point, _ = cv.projectPoints(voxel_point, rotation_vector, translation_vector,
-                                                      camera_matrix, distortion_coeffs)
-                    img_point = tuple(img_point[0].ravel())
-                    lookup_table.append(((xv, yv, zv), c, img_point))
-
-    return lookup_table
     
-# Call the function to get the camera intrinsics and extrinsics for each camera
+
+'''# Call the function to get the camera intrinsics and extrinsics for each camera
 for camera_number in range(1, settings.num_cameras+1):
     cc.get_camera_intrinsics_and_extrinsics(camera_number)
     # background model
@@ -199,8 +181,8 @@ for camera_number in range(1, settings.num_cameras+1):
     #     print("Failed to create background model")
     
     # manual subtraction
-    manual_mask_path = f'data/cam{camera_number}/manual_mask.jpg'   
+    manual_mask_path = f'data/cam{camera_number}/manual_mask.jpg'
     video_path = f'data/cam{camera_number}/video.avi'
     background_model_path = f'data/cam{camera_number}/background_model.jpg'
-    optimal_thresholds = manual_segmentation_comparison(video_path, background_model_path, manual_mask_path, steps=[50, 10, 5, 1])
+    optimal_thresholds = manual_segmentation_comparison(video_path, background_model_path, manual_mask_path, camera_number, steps=[50, 10, 5, 1])'''
 

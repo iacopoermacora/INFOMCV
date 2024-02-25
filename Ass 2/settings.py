@@ -5,10 +5,10 @@ use_webcam = False
 # Set the error threshold for rejecting low-quality images (DEFAULT: 0.3)
 error_threshold = 0.5 
 # Define the width and height of the internal chessboard (in squares)
-width = 5
+width = 5 # TODO: In checkerboard.xml width and height are switched ???
 height = 7
-# Define the size of the squares of the chessboard in meters
-square_size = 0.115
+# Define the size of the squares of the chessboard in millimeters TODO: I think a problem could be here!
+square_size = 115
 # Plot the camera positions or not (DEFAULT: False)
 plot_camera = False
 # Interval of seconds between images (DEFAULT: 10)
