@@ -1,5 +1,4 @@
 import glm
-import random
 import numpy as np
 from tqdm import tqdm
 import Assignment_2 as a2
@@ -57,7 +56,7 @@ def set_voxel_positions(width, height, depth):
                     # voxel_volume[x, y, z] = True
                     # print(f'Voxel at {x, y, z} is visible in all views')
                     visible_all_cameras += 1
-                    data.append([x*block_size - width/2, z*block_size, y*block_size - depth/2])
+                    data.append([x*block_size - width/2 + 40, z*block_size, y*block_size - depth/2 + 40])
                     colors.append([x / width, z / depth, y / height])
     
     
@@ -80,7 +79,7 @@ def get_cam_positions():
         _, _, rvecs, tvecs = a2.read_camera_parameters(c)
         print(rvecs, tvecs)
         rotM = cv.Rodrigues(rvecs)[0]
-        cameraposition[(c-1)] = (-np.matrix(rotM).T * np.matrix(tvecs)) # tvecs /settings.square_size ???
+        cameraposition[(c-1)] = (-np.matrix(rotM).T * np.matrix(tvecs)/settings.square_size) # tvecs /settings.square_size ???
 
     cameraposition2 = [[cameraposition[0][0][0], -cameraposition[0][2][0], cameraposition[0][1][0]],
                        [cameraposition[1][0][0], -cameraposition[1][2][0], cameraposition[1][1][0]],
@@ -118,7 +117,7 @@ def create_lookup_table(voxel_volume):
     for x in tqdm(range(voxel_volume.shape[0]), desc="Lookup Table Progress"):
         for y in range(voxel_volume.shape[1]):
             for z in range(voxel_volume.shape[2]):
-                voxel_point = np.array([[(x*block_size - voxel_volume.shape[0]/2), (y*block_size - voxel_volume.shape[1]/2), -z*block_size]], dtype=np.float32)
+                voxel_point = np.array([[(x*block_size - voxel_volume.shape[0]/2) * 40, (y*block_size - voxel_volume.shape[1]/2) * 40, -z*block_size * 40]], dtype=np.float32)
 
                 for c in range(1, settings.num_cameras+1):
                     camera_matrix, distortion_coeffs, rotation_vector, translation_vector = a2.read_camera_parameters(c)

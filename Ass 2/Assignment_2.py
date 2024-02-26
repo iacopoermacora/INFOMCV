@@ -4,7 +4,6 @@ import cv2 as cv
 from tqdm import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
-import time
 
 def create_background_model_gmm(video_path):
     cap = cv.VideoCapture(video_path)

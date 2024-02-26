@@ -3,7 +3,6 @@ import cv2 as cv
 import glob
 import matplotlib.pyplot as plt
 import os
-import pickle
 import settings as settings
 
 def find_corners(fname, img, gray, objp, objpoints, imgpoints, criteria):
@@ -491,15 +490,15 @@ def get_camera_intrinsics_and_extrinsics(camera_number):
 
         # Define the object points for the test image
         objp_test = np.zeros(((settings.width+1)*(settings.height+1),3), np.float32)
-        objp_test[:,:2] = np.mgrid[0:(settings.height+1),0:(settings.width+1)].T.reshape(-1,2)
+        objp_test[:,:2] = np.mgrid[0:(settings.height+1),0:(settings.width+1)].T.reshape(-1,2) * settings.square_size
         # Define the axis
-        axis = np.float32([[4,0,0], [0,4,0], [0,0,-4]]).reshape(-1,3)
+        axis = np.float32([[4,0,0], [0,4,0], [0,0,-4]]).reshape(-1,3) * settings.square_size
         # Define the cube points
         cube_size = 2
         cube_points = np.float32([
         [0, 0, 0], [0, cube_size, 0], [cube_size, cube_size, 0], [cube_size, 0, 0],
         [0, 0, -cube_size], [0, cube_size, -cube_size], [cube_size, cube_size, -cube_size], [cube_size, 0, -cube_size]
-        ])
+        ]) * settings.square_size
 
         # Test the calibration using the webcam or the static test image
         if settings.use_webcam:
