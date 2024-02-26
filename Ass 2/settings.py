@@ -9,6 +9,8 @@ width = 5 # TODO: In checkerboard.xml width and height are switched ???
 height = 7
 # Define the size of the squares of the chessboard in millimeters TODO: I think a problem could be here!
 square_size = 115
+# Define the size of the grid in millimeters
+grid_tile_size = 30
 # Plot the camera positions or not (DEFAULT: False)
 plot_camera = False
 # Interval of seconds between images (DEFAULT: 10)
