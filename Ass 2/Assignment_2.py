@@ -75,7 +75,7 @@ def background_subtraction(video_path, background_model_path, h_thresh, s_thresh
     cv.drawContours(blob_mask, blobs_1, -1, (255), thickness=cv.FILLED)
 
     dilation_mask_bitw = cv.bitwise_and(threshold_mask, blob_mask)
-    # Dilation to fill in gaps
+    '''# Dilation to fill in gaps
     kernel_2 = np.ones((2, 2), np.uint8)
     dilation_mask_2 = cv.dilate(dilation_mask_bitw, kernel_2, iterations=1)
 
@@ -92,10 +92,11 @@ def background_subtraction(video_path, background_model_path, h_thresh, s_thresh
     blob_mask_2 = np.zeros_like(dilation_mask_2)
     cv.drawContours(blob_mask_2, blobs_2, -1, (255), thickness=cv.FILLED)
     
-    combined_mask = blob_mask_2
+    combined_mask = blob_mask_2'''
+    combined_mask = dilation_mask_bitw # TODO: Remove when reimplementing the part before
 
 
-    if thresh_search == False:
+    '''if thresh_search == False:
         #cv.imshow('threshold Mask', threshold_mask)
         cv.imshow('dilation Mask', dilation_mask)
         cv.imshow('Blob Mask', blob_mask)
@@ -106,7 +107,7 @@ def background_subtraction(video_path, background_model_path, h_thresh, s_thresh
 
     cap.release()
     cv.destroyAllWindows()
-    cv.waitKey(0)
+    cv.waitKey(1)'''
 
     return combined_mask
 
@@ -147,6 +148,30 @@ def manual_segmentation_comparison(video_path, background_model_path, manual_mas
     print(f'Optimal thresholds: Hue={optimal_thresholds[0]}, Saturation={optimal_thresholds[1]}, Value={optimal_thresholds[2]}')
     segmented = background_subtraction(video_path, background_model_path, optimal_thresholds[0], optimal_thresholds[1], optimal_thresholds[2])
 
+    # Dilation to fill in gaps TODO: Remove from here
+    kernel_2 = np.ones((2, 2), np.uint8)
+    dilation_mask_2 = cv.dilate(segmented, kernel_2, iterations=1)
+
+    
+    # BLOB DETECTION AND REMOVAL
+    # Find contours
+    contours_2, _ = cv.findContours(dilation_mask_2, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+
+    # Filter contours based on area to identify blobs
+    min_blob_area_2 = 20  # Adjust this threshold as needed
+    blobs_2 = [cnt for cnt in contours_2 if cv.contourArea(cnt) > min_blob_area_2]
+
+    # Draw the detected blobs
+    blob_mask_2 = np.zeros_like(dilation_mask_2)
+    cv.drawContours(blob_mask_2, blobs_2, -1, (255), thickness=cv.FILLED)
+
+    segmented = blob_mask_2 # TODO: Remove until here
+
+    cv.imshow('Foreground Mask', segmented)
+    cv.waitKey(0) 
+    cv.destroyAllWindows()
+    cv.waitKey(1)
+
     cv.imwrite(f'data/cam{camera_number}/foreground_mask.jpg', segmented)
 
     return optimal_thresholds
@@ -169,7 +194,7 @@ def read_camera_parameters(camera_number):
     return camera_matrix, dist_coeffs, rvecs, tvecs
     
 
-'''# Call the function to get the camera intrinsics and extrinsics for each camera
+# Call the function to get the camera intrinsics and extrinsics for each camera
 for camera_number in range(1, settings.num_cameras+1):
     cc.get_camera_intrinsics_and_extrinsics(camera_number)
     # background model
@@ -188,5 +213,5 @@ for camera_number in range(1, settings.num_cameras+1):
     manual_mask_path = f'data/cam{camera_number}/manual_mask.jpg'
     video_path = f'data/cam{camera_number}/video.avi'
     background_model_path = f'data/cam{camera_number}/background_model.jpg'
-    optimal_thresholds = manual_segmentation_comparison(video_path, background_model_path, manual_mask_path, camera_number, steps=[50, 10, 5, 1])'''
+    optimal_thresholds = manual_segmentation_comparison(video_path, background_model_path, manual_mask_path, camera_number, steps=[50, 10, 5, 1])
 
