@@ -5,6 +5,31 @@ from tqdm import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
 
+def analyze_frame_properties(combined_mask):
+    contours, _ = cv.findContours(combined_mask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+    # Calculate properties like average contour area, density of foreground, etc.
+    contour_areas = [cv.contourArea(cnt) for cnt in contours]
+    average_contour_area = np.mean(contour_areas) if contour_areas else 0
+    foreground_density = np.sum(combined_mask > 0) / np.product(combined_mask.shape)
+    return average_contour_area, foreground_density
+
+def adjust_blob_detection_thresholds(average_contour_area, min_area=10, max_area=500):
+    # Dynamically adjust blob size thresholds based on frame analysis
+    # This is a placeholder; actual logic will depend on specific application needs
+    if average_contour_area < 50:
+        return max(min_area, average_contour_area / 2), max_area
+    else:
+        return min_area, min(max_area, average_contour_area * 2)
+
+def adjust_dilation_parameters(foreground_density, base_kernel_size=(5, 5), base_iterations=1):
+    # Adjust dilation parameters based on foreground density
+    if foreground_density < 0.1:  # Low density, isolated objects
+        return (7, 7), 2  # Larger kernel, more iterations
+    elif foreground_density > 0.3:  # High density, risk of merging objects
+        return (3, 3), 1  # Smaller kernel, fewer iterations
+    else:
+        return base_kernel_size, base_iterations
+    
 def create_background_model_gmm(video_path):
     cap = cv.VideoCapture(video_path)
     if not cap.isOpened():
@@ -55,26 +80,34 @@ def background_subtraction(video_path, background_model_path, h_thresh, s_thresh
 
 
     # Combine the thresholds 
-    combined_mask = cv.bitwise_and(thresh_v, cv.bitwise_and(thresh_h, thresh_s))
+    threshold_mask = cv.bitwise_and(thresh_v, cv.bitwise_and(thresh_h, thresh_s))
 
-    # # Dilation to fill in gaps
-    # kernel = np.ones((3, 3), np.uint8)
-    # combined_mask = cv.dilate(combined_mask, kernel, iterations=1)
 
-    # # BLOB DETECTION AND REMOVAL
-    # # Find contours
-    # contours, _ = cv.findContours(combined_mask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+    # Dilation to fill in gaps
+    kernel = np.ones((6, 6), np.uint8)
+    dilation_mask = cv.dilate(threshold_mask, kernel, iterations=1)
 
-    # # Filter contours based on area to identify blobs
-    # min_blob_area = 50  # Adjust this threshold as needed
-    # blobs = [cnt for cnt in contours if cv.contourArea(cnt) > min_blob_area]
+    # BLOB DETECTION AND REMOVAL
+    # Find contours
+    contours, _ = cv.findContours(dilation_mask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
 
-    # # Draw the detected blobs
-    # blob_mask = np.zeros_like(combined_mask)
-    # cv.drawContours(blob_mask, blobs, -1, (255), thickness=cv.FILLED)
+    # Filter contours based on area to identify blobs
+    min_blob_area = 150  # Adjust this threshold as needed
+    blobs = [cnt for cnt in contours if cv.contourArea(cnt) > min_blob_area]
 
-    # combined_mask = blob_mask
+    # Draw the detected blobs
+    blob_mask = np.zeros_like(dilation_mask)
+    cv.drawContours(blob_mask, blobs, -1, (255), thickness=cv.FILLED)
+
+    dilation_mask_bitw = cv.bitwise_and(threshold_mask, blob_mask)
+    # Dilation to fill in gaps
+    kernel = np.ones((3, 3), np.uint8)
+    dilation_mask_2 = cv.dilate(dilation_mask_bitw, kernel, iterations=1)
+
+    combined_mask = dilation_mask_2
+
     
+
     # if thresh_search == True:
     #     break
     # else:
@@ -96,6 +129,10 @@ def background_subtraction(video_path, background_model_path, h_thresh, s_thresh
     #     break
 
     if thresh_search == False:
+        cv.imshow('threshold Mask', threshold_mask)
+        cv.imshow('dilation Mask', dilation_mask)
+        cv.imshow('Blob Mask', blob_mask)
+        cv.imshow('bitw Mask', dilation_mask_bitw)
         cv.imshow('Foreground Mask', combined_mask)
         cv.waitKey(0) 
 
@@ -164,7 +201,7 @@ def read_camera_parameters(camera_number):
     return camera_matrix, dist_coeffs, rvecs, tvecs
     
 
-'''# Call the function to get the camera intrinsics and extrinsics for each camera
+# Call the function to get the camera intrinsics and extrinsics for each camera
 for camera_number in range(1, settings.num_cameras+1):
     cc.get_camera_intrinsics_and_extrinsics(camera_number)
     # background model
@@ -183,5 +220,5 @@ for camera_number in range(1, settings.num_cameras+1):
     manual_mask_path = f'data/cam{camera_number}/manual_mask.jpg'
     video_path = f'data/cam{camera_number}/video.avi'
     background_model_path = f'data/cam{camera_number}/background_model.jpg'
-    optimal_thresholds = manual_segmentation_comparison(video_path, background_model_path, manual_mask_path, camera_number, steps=[50, 10, 5, 1])'''
+    optimal_thresholds = manual_segmentation_comparison(video_path, background_model_path, manual_mask_path, camera_number, steps=[50, 10, 5, 1])
 
