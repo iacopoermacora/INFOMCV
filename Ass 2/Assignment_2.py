@@ -194,7 +194,7 @@ def read_camera_parameters(camera_number):
     return camera_matrix, dist_coeffs, rvecs, tvecs
     
 
-# Call the function to get the camera intrinsics and extrinsics for each camera
+'''# Call the function to get the camera intrinsics and extrinsics for each camera
 for camera_number in range(1, settings.num_cameras+1):
     cc.get_camera_intrinsics_and_extrinsics(camera_number)
     # background model
@@ -213,5 +213,5 @@ for camera_number in range(1, settings.num_cameras+1):
     manual_mask_path = f'data/cam{camera_number}/manual_mask.jpg'
     video_path = f'data/cam{camera_number}/video.avi'
     background_model_path = f'data/cam{camera_number}/background_model.jpg'
-    optimal_thresholds = manual_segmentation_comparison(video_path, background_model_path, manual_mask_path, camera_number, steps=[50, 10, 5, 1])
+    optimal_thresholds = manual_segmentation_comparison(video_path, background_model_path, manual_mask_path, camera_number, steps=[50, 10, 5, 1])'''
 

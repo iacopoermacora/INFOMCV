@@ -181,11 +181,9 @@ def mesh(voxels):
     mesh.set_edgecolor('k')
     ax.add_collection3d(mesh)
 
-    ax.set_xlim(config["world_width"]-50/2, config["world_width"]+50/2)
-    ax.set_ylim(-config["world_height"]-50/2, config["world_height"]+50/2)
-    ax.set_zlim(0, 50)
+    ax.set_xlim((-config['world_width']+100)/2, (config['world_width']+100)/2)
+    ax.set_ylim((-config['world_height']+100)/2, (config['world_height']+100)/2)
+    ax.set_zlim(0, config['world_depth'])
 
     plt.tight_layout()
-    plt.show(block=False)
-    plt.waitforbuttonpress()
-    plt.close()
+    plt.savefig('voxel_mesh.png')

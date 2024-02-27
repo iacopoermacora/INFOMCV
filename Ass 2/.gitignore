@@ -134,4 +134,4 @@ dmypy.json
 # Everything else
 data/
 __pycache__/
-lookup_table.pkl
+Ass 2/lookup_table.pkl
