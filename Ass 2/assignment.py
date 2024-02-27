@@ -6,8 +6,14 @@ import settings as settings
 import cv2 as cv
 import pickle
 import os
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+from engine.config import config
+
+from skimage import measure
 
 block_size = 1.0
+resolution = settings.grid_tile_size
 
 def generate_grid(width, depth):
     # Generates the floor grid locations
@@ -49,14 +55,15 @@ def set_voxel_positions(width, height, depth):
 
     visible_all_cameras = 0
     # Iterate over voxels to mark them visible if visible in all views
+    voxels = np.all(voxel_volume, axis=3)
     for x in range(width):
         for y in range(height):
             for z in range(depth):
-                if np.all(voxel_volume[x, y, z, :]):
+                if voxels[x, y, z]:
                     # voxel_volume[x, y, z] = True
                     # print(f'Voxel at {x, y, z} is visible in all views')
                     visible_all_cameras += 1
-                    data.append([x*block_size - width/2 + 40, z*block_size, y*block_size - depth/2 + 40])
+                    data.append([(x*block_size - width/2) - resolution/2, (z*block_size), (y*block_size - depth/2) - resolution/2])
                     colors.append([x / width, z / depth, y / height])
     
     
@@ -68,6 +75,9 @@ def set_voxel_positions(width, height, depth):
     #             if random.randint(0, 1000) < 5:
     #                 data.append([x*block_size - width/2, y*block_size, z*block_size - depth/2])
     #                 colors.append([x / width, z / depth, y / height])
+    print("Start Marching Cube")
+    mesh(voxels)
+    print("End Marching Cube")
     return data, colors
 
 
@@ -79,7 +89,7 @@ def get_cam_positions():
         _, _, rvecs, tvecs = a2.read_camera_parameters(c)
         print(rvecs, tvecs)
         rotM = cv.Rodrigues(rvecs)[0]
-        cameraposition[(c-1)] = (-np.matrix(rotM).T * np.matrix(tvecs)/settings.square_size) # tvecs /settings.square_size ???
+        cameraposition[(c-1)] = (-np.dot(np.transpose(rotM), tvecs / settings.grid_tile_size))
 
     cameraposition2 = [[cameraposition[0][0][0], -cameraposition[0][2][0], cameraposition[0][1][0]],
                        [cameraposition[1][0][0], -cameraposition[1][2][0], cameraposition[1][1][0]],
@@ -117,7 +127,7 @@ def create_lookup_table(voxel_volume):
     for x in tqdm(range(voxel_volume.shape[0]), desc="Lookup Table Progress"):
         for y in range(voxel_volume.shape[1]):
             for z in range(voxel_volume.shape[2]):
-                voxel_point = np.array([[(x*block_size - voxel_volume.shape[0]/2) * 40, (y*block_size - voxel_volume.shape[1]/2) * 40, -z*block_size * 40]], dtype=np.float32)
+                voxel_point = np.array([[(x*block_size - voxel_volume.shape[0]/2) * resolution, (y*block_size - voxel_volume.shape[1]/2) * resolution, -z*block_size * resolution]], dtype=np.float32)
 
                 for c in range(1, settings.num_cameras+1):
                     camera_matrix, distortion_coeffs, rotation_vector, translation_vector = a2.read_camera_parameters(c)
@@ -130,7 +140,7 @@ def create_lookup_table(voxel_volume):
                     # Only accept pixels inside the image
                     if 0 <= img_point[0] < heightImg and 0 <= img_point[1] < widthImg:
                         # Store {XV, YV, ZV}, c and {xim, yim} in the look-up table
-                        lookup_table.append(((x, y, z), c, img_point))
+                        lookup_table.append((((x, y, z), c, img_point)))
 
 
     # TEST CODE TO COUNT ENTRIES IN LOOKUP TABLE
@@ -148,7 +158,7 @@ def create_lookup_table(voxel_volume):
 
     # Save the variable to a pickle file
     with open('lookup_table.pkl', 'wb') as f:
-        pickle.dump(lookup_table, f)
+        pickle.dump(lookup_table, f, protocol=4)
 
     return lookup_table
 
@@ -156,3 +166,26 @@ def is_foreground(pixel_coords, foreground_mask):
     # Check if pixel is foreground in the corresponding view
     y, x = int(pixel_coords[0]), int(pixel_coords[1]) # OpenCV uses (y, x) indexing
     return foreground_mask[y, x] == 255
+
+def mesh(voxels):
+    # Use marching cubes to obtain the surface mesh of these ellipsoids
+    verts, faces, normals, values = measure.marching_cubes(voxels, 0)
+
+    # Display resulting triangular mesh using Matplotlib. This can also be done
+    # with mayavi (see skimage.measure.marching_cubes docstring).
+    fig = plt.figure(figsize=(10, 10))
+    ax = fig.add_subplot(111, projection='3d')
+
+    # Fancy indexing: `verts[faces]` to generate a collection of triangles
+    mesh = Poly3DCollection(verts[faces])
+    mesh.set_edgecolor('k')
+    ax.add_collection3d(mesh)
+
+    ax.set_xlim(config["world_width"]-50/2, config["world_width"]+50/2)
+    ax.set_ylim(-config["world_height"]-50/2, config["world_height"]+50/2)
+    ax.set_zlim(0, 50)
+
+    plt.tight_layout()
+    plt.show(block=False)
+    plt.waitforbuttonpress()
+    plt.close()
