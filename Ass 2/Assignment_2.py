@@ -4,31 +4,6 @@ import cv2 as cv
 from tqdm import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
-
-def analyze_frame_properties(combined_mask):
-    contours, _ = cv.findContours(combined_mask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
-    # Calculate properties like average contour area, density of foreground, etc.
-    contour_areas = [cv.contourArea(cnt) for cnt in contours]
-    average_contour_area = np.mean(contour_areas) if contour_areas else 0
-    foreground_density = np.sum(combined_mask > 0) / np.product(combined_mask.shape)
-    return average_contour_area, foreground_density
-
-def adjust_blob_detection_thresholds(average_contour_area, min_area=10, max_area=500):
-    # Dynamically adjust blob size thresholds based on frame analysis
-    # This is a placeholder; actual logic will depend on specific application needs
-    if average_contour_area < 50:
-        return max(min_area, average_contour_area / 2), max_area
-    else:
-        return min_area, min(max_area, average_contour_area * 2)
-
-def adjust_dilation_parameters(foreground_density, base_kernel_size=(5, 5), base_iterations=1):
-    # Adjust dilation parameters based on foreground density
-    if foreground_density < 0.1:  # Low density, isolated objects
-        return (7, 7), 2  # Larger kernel, more iterations
-    elif foreground_density > 0.3:  # High density, risk of merging objects
-        return (3, 3), 1  # Smaller kernel, fewer iterations
-    else:
-        return base_kernel_size, base_iterations
     
 def create_background_model_gmm(video_path):
     cap = cv.VideoCapture(video_path)
@@ -84,7 +59,7 @@ def background_subtraction(video_path, background_model_path, h_thresh, s_thresh
 
 
     # Dilation 1 to fill in gaps
-    kernel_1 = np.ones((7, 7), np.uint8)
+    kernel_1 = np.ones((5,5), np.uint8)
     dilation_mask = cv.dilate(threshold_mask, kernel_1, iterations=1)
 
     # BLOB 1 DETECTION AND REMOVAL
@@ -92,7 +67,7 @@ def background_subtraction(video_path, background_model_path, h_thresh, s_thresh
     contours_1, _ = cv.findContours(dilation_mask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
 
     # Filter contours based on area to identify blobs
-    min_blob_area_1 = 200  # Adjust this threshold as needed
+    min_blob_area_1 = 1000  # Adjust this threshold as needed
     blobs_1 = [cnt for cnt in contours_1 if cv.contourArea(cnt) > min_blob_area_1]
 
     # Draw the detected blobs
@@ -101,7 +76,7 @@ def background_subtraction(video_path, background_model_path, h_thresh, s_thresh
 
     dilation_mask_bitw = cv.bitwise_and(threshold_mask, blob_mask)
     # Dilation to fill in gaps
-    kernel_2 = np.ones((3, 3), np.uint8)
+    kernel_2 = np.ones((2, 2), np.uint8)
     dilation_mask_2 = cv.dilate(dilation_mask_bitw, kernel_2, iterations=1)
 
     
@@ -121,7 +96,7 @@ def background_subtraction(video_path, background_model_path, h_thresh, s_thresh
 
 
     if thresh_search == False:
-        cv.imshow('threshold Mask', threshold_mask)
+        #cv.imshow('threshold Mask', threshold_mask)
         cv.imshow('dilation Mask', dilation_mask)
         cv.imshow('Blob Mask', blob_mask)
         cv.imshow('bitw Mask', dilation_mask_bitw)
