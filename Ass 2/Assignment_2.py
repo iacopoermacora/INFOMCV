@@ -83,62 +83,55 @@ def background_subtraction(video_path, background_model_path, h_thresh, s_thresh
     threshold_mask = cv.bitwise_and(thresh_v, cv.bitwise_and(thresh_h, thresh_s))
 
 
-    # Dilation to fill in gaps
-    kernel = np.ones((6, 6), np.uint8)
-    dilation_mask = cv.dilate(threshold_mask, kernel, iterations=1)
+    # Dilation 1 to fill in gaps
+    kernel_1 = np.ones((7, 7), np.uint8)
+    dilation_mask = cv.dilate(threshold_mask, kernel_1, iterations=1)
 
-    # BLOB DETECTION AND REMOVAL
+    # BLOB 1 DETECTION AND REMOVAL
     # Find contours
-    contours, _ = cv.findContours(dilation_mask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+    contours_1, _ = cv.findContours(dilation_mask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
 
     # Filter contours based on area to identify blobs
-    min_blob_area = 150  # Adjust this threshold as needed
-    blobs = [cnt for cnt in contours if cv.contourArea(cnt) > min_blob_area]
+    min_blob_area_1 = 200  # Adjust this threshold as needed
+    blobs_1 = [cnt for cnt in contours_1 if cv.contourArea(cnt) > min_blob_area_1]
 
     # Draw the detected blobs
     blob_mask = np.zeros_like(dilation_mask)
-    cv.drawContours(blob_mask, blobs, -1, (255), thickness=cv.FILLED)
+    cv.drawContours(blob_mask, blobs_1, -1, (255), thickness=cv.FILLED)
 
     dilation_mask_bitw = cv.bitwise_and(threshold_mask, blob_mask)
     # Dilation to fill in gaps
-    kernel = np.ones((3, 3), np.uint8)
-    dilation_mask_2 = cv.dilate(dilation_mask_bitw, kernel, iterations=1)
-
-    combined_mask = dilation_mask_2
+    kernel_2 = np.ones((3, 3), np.uint8)
+    dilation_mask_2 = cv.dilate(dilation_mask_bitw, kernel_2, iterations=1)
 
     
+    # BLOB DETECTION AND REMOVAL
+    # Find contours
+    contours_2, _ = cv.findContours(dilation_mask_2, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
 
-    # if thresh_search == True:
-    #     break
-    # else:
-    #     cv.imshow('Foreground Mask before', combined_mask)
-    #     cv.waitKey(0)
-    #     # Perform graph cuts using GrabCut algorithm
-    #     mask = np.zeros(frame.shape[:2], np.uint8)
-    #     converted_mask = np.zeros_like(combined_mask, dtype=np.uint8)
-    #     # Set background regions to GC_BGD
-    #     converted_mask[combined_mask == 0] = cv.GC_FGD
-    #     # Set foreground regions to GC_FGD
-    #     converted_mask[combined_mask == 255] = cv.GC_BGD
-    #     bgdModel = np.zeros((1,65),np.float64)
-    #     fgdModel = np.zeros((1,65),np.float64)
-    #     rect = (0, 0, frame.shape[1]-1, frame.shape[0]-1)  # Entire frame region
-    #     mask, _, _ = cv.grabCut(frame, converted_mask, rect, bgdModel, fgdModel, 5, cv.GC_INIT_WITH_MASK)
-    #     # Modify the mask to get the foreground
-    #     combined_mask = np.where((mask==2)|(mask==0), 255, 0).astype('uint8')
-    #     break
+    # Filter contours based on area to identify blobs
+    min_blob_area_2 = 20  # Adjust this threshold as needed
+    blobs_2 = [cnt for cnt in contours_2 if cv.contourArea(cnt) > min_blob_area_2]
+
+    # Draw the detected blobs
+    blob_mask_2 = np.zeros_like(dilation_mask_2)
+    cv.drawContours(blob_mask_2, blobs_2, -1, (255), thickness=cv.FILLED)
+    
+    combined_mask = blob_mask_2
+
 
     if thresh_search == False:
         cv.imshow('threshold Mask', threshold_mask)
         cv.imshow('dilation Mask', dilation_mask)
         cv.imshow('Blob Mask', blob_mask)
         cv.imshow('bitw Mask', dilation_mask_bitw)
+        cv.imshow('dilation Mask 2', dilation_mask_2)
         cv.imshow('Foreground Mask', combined_mask)
         cv.waitKey(0) 
 
     cap.release()
     cv.destroyAllWindows()
-    cv.waitKey(1)
+    cv.waitKey(0)
 
     return combined_mask
 
