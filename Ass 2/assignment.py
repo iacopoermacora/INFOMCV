@@ -6,6 +6,11 @@ import settings as settings
 import cv2 as cv
 import pickle
 import os
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+from engine.config import config
+
+from skimage import measure
 
 block_size = 1.0
 resolution = settings.grid_tile_size
@@ -50,10 +55,11 @@ def set_voxel_positions(width, height, depth):
 
     visible_all_cameras = 0
     # Iterate over voxels to mark them visible if visible in all views
+    voxels = np.all(voxel_volume, axis=3)
     for x in range(width):
         for y in range(height):
             for z in range(depth):
-                if np.all(voxel_volume[x, y, z, :]):
+                if voxels[x, y, z]:
                     # voxel_volume[x, y, z] = True
                     # print(f'Voxel at {x, y, z} is visible in all views')
                     visible_all_cameras += 1
@@ -69,6 +75,9 @@ def set_voxel_positions(width, height, depth):
     #             if random.randint(0, 1000) < 5:
     #                 data.append([x*block_size - width/2, y*block_size, z*block_size - depth/2])
     #                 colors.append([x / width, z / depth, y / height])
+    print("Start Marching Cube")
+    mesh(voxels)
+    print("End Marching Cube")
     return data, colors
 
 
@@ -157,3 +166,26 @@ def is_foreground(pixel_coords, foreground_mask):
     # Check if pixel is foreground in the corresponding view
     y, x = int(pixel_coords[0]), int(pixel_coords[1]) # OpenCV uses (y, x) indexing
     return foreground_mask[y, x] == 255
+
+def mesh(voxels):
+    # Use marching cubes to obtain the surface mesh of these ellipsoids
+    verts, faces, normals, values = measure.marching_cubes(voxels, 0)
+
+    # Display resulting triangular mesh using Matplotlib. This can also be done
+    # with mayavi (see skimage.measure.marching_cubes docstring).
+    fig = plt.figure(figsize=(10, 10))
+    ax = fig.add_subplot(111, projection='3d')
+
+    # Fancy indexing: `verts[faces]` to generate a collection of triangles
+    mesh = Poly3DCollection(verts[faces])
+    mesh.set_edgecolor('k')
+    ax.add_collection3d(mesh)
+
+    ax.set_xlim(config["world_width"]-50/2, config["world_width"]+50/2)
+    ax.set_ylim(-config["world_height"]-50/2, config["world_height"]+50/2)
+    ax.set_zlim(0, 50)
+
+    plt.tight_layout()
+    plt.show(block=False)
+    plt.waitforbuttonpress()
+    plt.close()
