@@ -12,6 +12,8 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from engine.config import config
 from skimage import measure
 
+import sys
+
 block_size = 1.0
 
 def generate_grid(width, depth):
@@ -571,7 +573,7 @@ for camera_number in range(1, settings.NUM_CAMERAS+1):
     background_video_path = f'data/cam{camera_number}/background.avi'
     background_model = create_background_model_gmm(background_video_path)
     # Create the segmented video
-    manual_mask_path = f'data/cam{camera_number}/manual_mask.jpg'
+    manual_mask_path = f'manual_mask_{camera_number}.jpg'
     video_path = f'data/cam{camera_number}/video.avi'
     _, first_video_frame = cv.VideoCapture(video_path).read()
     background_model_path = f'data/cam{camera_number}/background_model.jpg'
