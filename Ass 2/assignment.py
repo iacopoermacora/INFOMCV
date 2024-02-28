@@ -431,7 +431,6 @@ def create_segmented_video(video_path, background_model_path, optimal_thresholds
     folder_path = os.path.dirname(video_path)
     output_video_path = f'{folder_path}/foreground_mask.avi'  # Update with the desired output video file path
     if os.path.exists(output_video_path):
-        print("here")
         return
     
     # Open the video file
