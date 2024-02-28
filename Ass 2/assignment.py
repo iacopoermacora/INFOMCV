@@ -16,33 +16,70 @@ from skimage import measure
 block_size = 1.0
 resolution = settings.GRID_TILE_SIZE
 
-def is_directly_visible(voxel_coords, camera_position2, foreground_mask):
-    # Check if voxel is directly visible in the corresponding view
+# def is_directly_visible(voxel_coords, camera_position2, foreground_mask):
+#     # Check if voxel is directly visible in the corresponding view
 
-    # Convert grid coordinates to the center position of the voxel
-    voxel_center = np.array([voxel_coords[0] + 0.5, voxel_coords[1] + 0.5, voxel_coords[2] + 0.5])
+#     # Convert grid coordinates to the center position of the voxel
+#     voxel_center = np.array([voxel_coords[0] + 0.5, voxel_coords[1] + 0.5, voxel_coords[2] + 0.5])
     
-    # Calculate the vector from the camera to the voxel
-    ray_direction = voxel_center - camera_position2
-    ray_length = np.linalg.norm(ray_direction)
-    ray_direction = ray_direction / ray_length
+#     # Calculate the vector from the camera to the voxel
+#     ray_direction = voxel_center - camera_position2
+#     ray_length = np.linalg.norm(ray_direction)
+#     ray_direction = ray_direction / ray_length
 
-    # Iterate over the voxels along the ray
-    step_size = 0.1
+#     # Iterate over the voxels along the ray
+#     step_size = 0.1
     
-    for step in range(int(ray_length / step_size)):
-        # Calculate the position of the voxel along the ray
-        position = camera_position2 + step * step_size * ray_direction
-        # Convert the position to grid coordinates
-        x, y, z = int(position[0]), int(position[1]), int(position[2])
-        # Check if the voxel is outside the grid
-        if x < 0 or x >= settings.grid_width or y < 0 or y >= settings.grid_height or z < 0 or z >= settings.grid_depth:
-            break
-        # Check if the voxel is visible in the corresponding view
-        if is_foreground((x, y), foreground_mask):
-            return False #Obstruction found
+#     for step in range(int(ray_length / step_size)):
+#         # Calculate the position of the voxel along the ray
+#         position = camera_position2 + step * step_size * ray_direction
+#         # Convert the position to grid coordinates
+#         x, y, z = int(position[0]), int(position[1]), int(position[2])
+#         # Check if the voxel is outside the grid
+#         if x < 0 or x >= settings.grid_width or y < 0 or y >= settings.grid_height or z < 0 or z >= settings.grid_depth:
+#             break
+#         # Check if the voxel is visible in the corresponding view
+#         if is_foreground((x, y), foreground_mask):
+#             return False #Obstruction found
     
-    return True #No obstruction found
+#     return True #No obstruction found
+
+def ray_trace(camera_position, voxel_positions, voxel_grid):
+    """
+    Determines which voxels are visible from the camera position.
+
+    :param camera_position: The (x, y, z) coordinates of the camera.
+    :param voxel_positions: A list of (x, y, z) coordinates for each voxel.
+    :param voxel_grid: A 3D numpy array representing the presence (True) or absence (False) of voxels.
+    :return: A list of booleans indicating visibility for each voxel in voxel_positions.
+    """
+
+    for target_voxel in voxel_positions:
+        if not voxel_grid[target_voxel[0], target_voxel[1], target_voxel[2]]:
+            direction = target_voxel - camera_position
+            distance_to_target = np.linalg.norm(direction)
+            direction /= distance_to_target  # Normalize direction vector
+
+            step_size = 1.0  # Adjust based on the desired precision
+            num_steps = int(distance_to_target / step_size)
+
+            is_first = True
+
+            for step in range(1, num_steps):
+                point_along_ray = camera_position + direction * step * step_size
+                x, y, z = np.round(point_along_ray).astype(int)
+                
+                # Check if we're outside the bounds of the voxel grid
+                if x < 0 or x >= voxel_grid.shape[0] or y < 0 or y >= voxel_grid.shape[1] or z < 0 or z >= voxel_grid.shape[2]:
+                    break
+
+                if voxel_grid[x, y, z]:  # There's a voxel blocking the view
+                    if is_first:
+                        is_first = False
+                    else:
+                        voxel_grid[x, y, z] = False
+
+    return voxel_grid
 
 def generate_grid(width, depth):
     # Generates the floor grid locations
@@ -72,8 +109,7 @@ def set_voxel_positions(width, height, depth):
         color_images.append(frame) # TODO: NEW
     voxel_volume = np.zeros((width, height, depth, settings.NUM_CAMERAS), dtype=bool)
     lookup_table = create_lookup_table(voxel_volume)
-
-    voxel_to_colors = {} # TODO: NEW
+    voxel_to_colors = np.zeros((width, height, depth, settings.NUM_CAMERAS, 3), dtype=int) # TODO: NEW
 
     visible_per_camera = np.zeros(settings.NUM_CAMERAS)
     # Iterate over pixels in the lookup table
@@ -82,11 +118,8 @@ def set_voxel_positions(width, height, depth):
         if is_foreground(pixel_coords, foreground_mask[n_camera-1]):
             visible_per_camera[n_camera-1] += 1
             voxel_volume[voxel_coords[0], voxel_coords[1], voxel_coords[2], (n_camera-1)] = True
-            if voxel_coords not in voxel_to_colors: # TODO : NEW
-                voxel_to_colors[voxel_coords] = []
             color = color_images[n_camera-1][int(pixel_coords[1]), int(pixel_coords[0]), :]
-            print('color', color)
-            voxel_to_colors[voxel_coords].append(color) # TODO: end NEW
+            voxel_to_colors[voxel_coords[0], voxel_coords[1], voxel_coords[2], (n_camera-1)] = color # TODO: end NEW
     
     # TEST CODE TO COUNT VISIBLE VOXELS PER CAMERA
     for c in range(settings.NUM_CAMERAS):
@@ -95,6 +128,13 @@ def set_voxel_positions(width, height, depth):
     visible_all_cameras = 0
     # Iterate over voxels to mark them visible if visible in all views
     voxels = np.all(voxel_volume, axis=3)
+    voxel_color_visibility = np.zeros((settings.NUM_CAMERAS, width, height, depth), dtype=bool)
+    for n_camera in range(1, settings.NUM_CAMERAS+1):
+        # SET THE CORRECT PARAMETERS FOR EACH CAMERA HERE
+        camera_position, _ = get_cam_positions()
+        voxel_positions = np.argwhere(voxels)
+        voxel_color_visibility[n_camera] = ray_trace(camera_position[n_camera-1], voxel_positions, voxels) # TODO: Insert the correct parameters
+        # TODO: Define the output
     for x in range(width):
         for y in range(height):
             for z in range(depth):
@@ -104,7 +144,14 @@ def set_voxel_positions(width, height, depth):
                     visible_all_cameras += 1
                     data.append([(x*block_size - width/2) - resolution/2, (z*block_size), (y*block_size - depth/2) - resolution/2])
                     # colors.append([x / width, z / depth, y / height])
-                    colors.append(np.mean(voxel_to_colors[(x, y, z)], axis=0) / 255)
+                    for n_camera in range(1, settings.NUM_CAMERAS+1):
+                        if voxel_color_visibility[n_camera][x, y, z]:
+                            color_voxel.append(voxel_to_colors[(x, y, z), n_camera-1] / 255)
+                    if len(color_voxel) > 0:
+                        color_voxel = np.mean(color_voxel, axis=0)
+                    else:
+                        color_voxel = [0, 0, 0]
+                    colors.append(color_voxel)
     
     
     print(f"Total voxels visible in all cameras: {visible_all_cameras}")
@@ -283,7 +330,7 @@ def background_subtraction(frame, background_model_path, optimal_thresholds):
     contours_1, _ = cv.findContours(dilation_mask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
 
     # Filter contours based on area to identify blobs
-    min_blob_area_1 = 1000  # Adjust this threshold as needed
+    min_blob_area_1 = 1500  # Adjust this threshold as needed
     blobs_1 = [cnt for cnt in contours_1 if cv.contourArea(cnt) > min_blob_area_1]
 
     # Draw the detected blobs
