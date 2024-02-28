@@ -108,9 +108,9 @@ def set_voxel_positions(width, height, depth):
                     
                     # If the voxel is visible in at least one camera, store the average color otherwise store a shade of grey
                     if len(color_voxel_cam) > 0:
-                        color_voxel = np.mean(color_voxel_cam, axis=0) # TODO fix
+                        color_voxel = np.mean(color_voxel_cam, axis=0)
                     else:
-                        color_voxel = [0, 0, 0] # TODO: Change to some shade of grey
+                        color_voxel = [0, 0, 0]
                     colors.append(color_voxel)
     
     
@@ -264,7 +264,7 @@ def generate_mesh(voxels, frame_number):
     ax.add_collection3d(mesh)
 
     # Set the viewing angle
-    ax.set_xlim((-config['world_width']+100)/2, (config['world_width']+100)/2) # TODO: Fix these according to the last chosen size of the voxel grid
+    ax.set_xlim((-config['world_width']+100)/2, (config['world_width']+100)/2)
     ax.set_ylim((-config['world_height']+100)/2, (config['world_height']+100)/2)
     ax.set_zlim(0, config['world_depth'])
 
@@ -395,7 +395,7 @@ def manual_segmentation_comparison(first_video_frame, background_model_path, man
                 for v_thresh in tqdm(search_ranges['value'], desc="Value Progress", leave=False):
                     # Apply the background subtraction with the current thresholds
                     test_threshold = (h_thresh, s_thresh, v_thresh)
-                    segmented = background_subtraction(first_video_frame, background_model_path, test_threshold) # TODO: Change to frame
+                    segmented = background_subtraction(first_video_frame, background_model_path, test_threshold)
                     xor_result = cv.bitwise_xor(segmented, cv.imread(manual_mask_path, 0))
                     # Assign the score based on the number of non-zero pixels in the XOR result
                     score = cv.countNonZero(xor_result)
@@ -431,6 +431,7 @@ def create_segmented_video(video_path, background_model_path, optimal_thresholds
     folder_path = os.path.dirname(video_path)
     output_video_path = f'{folder_path}/foreground_mask.avi'  # Update with the desired output video file path
     if os.path.exists(output_video_path):
+        print("here")
         return
     
     # Open the video file
@@ -459,7 +460,7 @@ def create_segmented_video(video_path, background_model_path, optimal_thresholds
         segmented = background_subtraction(frame, background_model_path, optimal_thresholds)
 
         # Apply dilation to fill in gaps
-        kernel_2 = np.ones((2, 2), np.uint8)
+        kernel_2 = np.ones((3, 3), np.uint8)
         dilation_mask_2 = cv.dilate(segmented, kernel_2, iterations=1)
 
         # Find contours for the blob mask
