@@ -9,7 +9,7 @@ def find_corners(fname, img, gray, objp, objpoints, imgpoints, criteria):
     global height
     global width
     # Find the chess board corners
-    ret, corners = cv.findChessboardCorners(gray, (settings.height+1,settings.width+1), None, cv.CALIB_CB_FAST_CHECK)
+    ret, corners = cv.findChessboardCorners(gray, (settings.CHECKERBOARD_HEIGHT, settings.CHECKERBOARD_WIDTH), None, cv.CALIB_CB_FAST_CHECK)
     # If found corners, add object points, image points (after refining them) otherwise manual select them
     if ret == True:
         print("\tAuto-detect corners: ", fname)
@@ -55,12 +55,12 @@ def click_event(event, x, y, flags, params):
             # org 
             org = (10, 50) 
             # fontScale 
-            fontScale = 1
+            fontScale = 0.75
             # Blue color in BGR
             color = (255, 0, 0) 
             # Line thickness of 2 px
             thickness = 3
-            cv.putText(img, "Press any key to find \n all chessboard corners", org, font, fontScale, color, thickness, cv.LINE_AA)
+            cv.putText(img, "Press any key to find all chessboard corners", org, font, fontScale, color, thickness, cv.LINE_AA)
             cv.namedWindow('img', cv.WINDOW_NORMAL)
             cv.imshow('img', img)
 
@@ -75,7 +75,7 @@ def manual_corners_selection(gray, img):
     '''
 
     print("\tSelect 4 corners in the image in the order: top-left, top-right, bottom-right, bottom-left.")
-    print("\tThe corners should be selected in a clockwise order and the first selected side should be long ", settings.width, " squares.")
+    print("\tThe corners should be selected in a clockwise order and the first selected side should be long ", settings.CHECKERBOARD_WIDTH-1, " squares.")
     input("\tPress Enter to continue...")
     print("\tClick on the image to select the corners...")
 
@@ -89,6 +89,7 @@ def manual_corners_selection(gray, img):
     cv.setMouseCallback('img', click_event, params) # Limit to 4 clicks
     cv.waitKey(0) # Press any key to continue after 4 clicks
     cv.destroyAllWindows()
+    cv.waitKey(1)
 
     # Perspective transformation
     target_height, target_width = img.shape[:2]  # You can set a specific size
@@ -112,14 +113,14 @@ def manual_corners_selection(gray, img):
             width_warp = x
     
     # Define the grid coordinates in the warped image
-    grid_points = np.zeros(((settings.height+1) * (settings.width+1), 2), dtype=np.float32)
+    grid_points = np.zeros(((settings.CHECKERBOARD_HEIGHT) * (settings.CHECKERBOARD_WIDTH), 2), dtype=np.float32)
 
     # Generate grid coordinates
     index = 0
-    for j in range(settings.width+1):
-        for i in range(settings.height, -1, -1):
-            x = j * width_warp/settings.width
-            y = i * height_warp/settings.height
+    for j in range(settings.CHECKERBOARD_WIDTH):
+        for i in range(settings.CHECKERBOARD_HEIGHT-1, -1, -1):
+            x = j * width_warp/(settings.CHECKERBOARD_WIDTH-1)
+            y = i * height_warp/(settings.CHECKERBOARD_HEIGHT-1)
             grid_points[index] = (x, y)
             index += 1
 
@@ -152,9 +153,9 @@ def add_corners_show_image(gray, img, corners, objp, objpoints, imgpoints, crite
 
     # Draw and display the corners
     cv.namedWindow('img', cv.WINDOW_NORMAL)
-    cv.drawChessboardCorners(img, (settings.height+1, settings.width+1), corners, True)
+    cv.drawChessboardCorners(img, (settings.CHECKERBOARD_HEIGHT, settings.CHECKERBOARD_WIDTH), corners, True)
     cv.imshow('img', img)
-    cv.waitKey(settings.image_view_time)
+    cv.waitKey(settings.IMAGE_VIEW_TIME)
     cv.destroyAllWindows()
     cv.waitKey(1)
 
@@ -228,7 +229,7 @@ def reject_low_quality_images(ret, mtx, dist, rvecs, tvecs, objpoints, imgpoints
     print(f"\tMean reprojection error: {mean_error}")
 
     # Iterate to reject low-quality images
-    while mean_error > settings.error_threshold and len(objpoints) > 0:
+    while mean_error > settings.ERROR_THRESHOLD and len(objpoints) > 0:
         max_error_idx = -1
         max_error_value = 0
 
@@ -241,7 +242,7 @@ def reject_low_quality_images(ret, mtx, dist, rvecs, tvecs, objpoints, imgpoints
                 max_error_idx = i
         
         # If the worst image is above the threshold, remove it
-        if max_error_value > settings.error_threshold:
+        if max_error_value > settings.ERROR_THRESHOLD:
             print(f"\tRejecting image with error {max_error_value}")
             objpoints.pop(max_error_idx)
             imgpoints.pop(max_error_idx)
@@ -252,7 +253,7 @@ def reject_low_quality_images(ret, mtx, dist, rvecs, tvecs, objpoints, imgpoints
             mean_error = validate_calibration(objpoints, imgpoints, rvecs, tvecs, mtx, dist)
             print(f"\tMean validation error after rejection: {mean_error}")
         else:
-            print(f"\tNo more images to reject with error above {settings.error_threshold}")
+            print(f"\tNo more images to reject with error above {settings.ERROR_THRESHOLD}")
             break  # No more images to reject
 
     print("\n")
@@ -279,7 +280,7 @@ def plot_camera_positions(tvecs):
     # Connect the camera positions to the origin to show the relative positions
     for pos in camera_positions:
         ax.plot([0, pos[0]], [0, pos[1]], [0, pos[2]], 'gray', linestyle='--')
-    N = settings.square_size * settings.width
+    N = settings.CHECKERBOARD_SQUARE_SIZE * (settings.CHECKERBOARD_WIDTH-1)
     X, Y = np.meshgrid(np.linspace(-N/2, N/2, 10), np.linspace(-N/2, N/2, 10))
     Z = np.zeros_like(X)
 
@@ -355,7 +356,7 @@ def get_images_from_video(camera_number, video_path, test_image=False):
     fps = cap.get(cv.CAP_PROP_FPS)
 
     # Calculate the interval between each frame to capture (every 2 seconds)
-    interval = settings.interval * fps
+    interval = settings.INTERVAL * fps
 
     count = 0
     frame_count = 0
@@ -440,8 +441,8 @@ def get_camera_intrinsics_and_extrinsics(camera_number):
     # termination criteria
     criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
     # prepare object points
-    objp = np.zeros(((settings.width+1)*(settings.height+1), 3), np.float32)
-    objp[:,:2] = np.mgrid[0:(settings.height+1),0:(settings.width+1)].T.reshape(-1,2) * settings.square_size # Adjusted to the grid real dimensions
+    objp = np.zeros(((settings.CHECKERBOARD_WIDTH)*(settings.CHECKERBOARD_HEIGHT), 3), np.float32)
+    objp[:,:2] = np.mgrid[0:(settings.CHECKERBOARD_HEIGHT),0:(settings.CHECKERBOARD_WIDTH)].T.reshape(-1,2) * settings.CHECKERBOARD_SQUARE_SIZE # Adjusted to the grid real dimensions
     # Variable to store the image size
     image_size = None
 
@@ -489,19 +490,19 @@ def get_camera_intrinsics_and_extrinsics(camera_number):
         print_explicit_intrinsics(mtx, test_image)
 
         # Define the object points for the test image
-        objp_test = np.zeros(((settings.width+1)*(settings.height+1),3), np.float32)
-        objp_test[:,:2] = np.mgrid[0:(settings.height+1),0:(settings.width+1)].T.reshape(-1,2) * settings.square_size
+        objp_test = np.zeros(((settings.CHECKERBOARD_WIDTH)*(settings.CHECKERBOARD_HEIGHT),3), np.float32)
+        objp_test[:,:2] = np.mgrid[0:(settings.CHECKERBOARD_HEIGHT),0:(settings.CHECKERBOARD_WIDTH)].T.reshape(-1,2) * settings.CHECKERBOARD_SQUARE_SIZE
         # Define the axis
-        axis = np.float32([[4,0,0], [0,4,0], [0,0,-4]]).reshape(-1,3) * settings.square_size
+        axis = np.float32([[4,0,0], [0,4,0], [0,0,-4]]).reshape(-1,3) * settings.CHECKERBOARD_SQUARE_SIZE
         # Define the cube points
         cube_size = 2
         cube_points = np.float32([
         [0, 0, 0], [0, cube_size, 0], [cube_size, cube_size, 0], [cube_size, 0, 0],
         [0, 0, -cube_size], [0, cube_size, -cube_size], [cube_size, cube_size, -cube_size], [cube_size, 0, -cube_size]
-        ]) * settings.square_size
+        ]) * settings.CHECKERBOARD_SQUARE_SIZE
 
         # Test the calibration using the webcam or the static test image
-        if settings.use_webcam:
+        if settings.USE_WEBCAM:
             # When using the webcam
             print("Using the webcam...")
             print("\tPress q to continue")
@@ -539,11 +540,14 @@ def get_camera_intrinsics_and_extrinsics(camera_number):
             cv.destroyAllWindows()
             print("\n")
         
+        cv.waitKey(1)
+        
         write_camera_parameters(camera_number, mtx, dist, rvecs_test, tvecs_test)
         
-        if settings.plot_camera:
+        if settings.PLOT_CAMERA:
             # Plot the camera positions
             plot_camera_positions(tvecs)
 
         print("\n")
     cv.destroyAllWindows()
+    cv.waitKey(1)
