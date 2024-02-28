@@ -10,58 +10,9 @@ import os
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from engine.config import config
-
 from skimage import measure
 
 block_size = 1.0
-resolution = settings.GRID_TILE_SIZE
-
-def ray_trace(camera_position, voxel_positions, voxel_grid):
-    """
-    Determines which voxels are visible from the camera position.
-
-    :param camera_position: The (x, y, z) coordinates of the camera.
-    :param voxel_positions: A list of (x, y, z) coordinates for each voxel.
-    :param voxel_grid: A 3D numpy array representing the presence (True) or absence (False) of voxels.
-    :return: A list of booleans indicating visibility for each voxel in voxel_positions.
-    """
-    print("ray_trace")
-    print("camera_position: ", camera_position)
-    print("voxel grid shape: ", np.shape(voxel_grid))
-    for target_voxel in voxel_positions:
-        if voxel_grid[target_voxel[0], target_voxel[1], target_voxel[2]]:
-            direction = target_voxel - camera_position
-            distance_to_target = np.linalg.norm(direction)
-            direction /= distance_to_target  # Normalize direction vector
-
-            step_size = 1.0  # Adjust based on the desired precision
-            num_steps = int(distance_to_target / step_size)
-
-            is_first = True
-            outside = True
-            # for step in range(1, num_steps):
-            step = 1
-            while True:
-                point_along_ray = camera_position + direction * step * step_size
-                step += 1
-                x, y, z = np.round(point_along_ray).astype(int)
-                # print("Point along ray: ", point_along_ray)
-                
-                # Check if we're outside the bounds of the voxel grid
-                if x < 0 or x >= voxel_grid.shape[0] or y < 0 or y >= voxel_grid.shape[1] or z < 0 or z >= voxel_grid.shape[2]:
-                    if outside == False:
-                        break
-                    continue
-
-                outside = False
-                
-                if voxel_grid[x, y, z]:  # There's a voxel blocking the view
-                    if is_first:
-                        is_first = False
-                    else:
-                        voxel_grid[x, y, z] = False
-
-    return voxel_grid
 
 def generate_grid(width, depth):
     # Generates the floor grid locations
@@ -75,11 +26,21 @@ def generate_grid(width, depth):
 
 
 def set_voxel_positions(width, height, depth):
-    # Generates random voxel locations
-    # TODO: You need to calculate proper voxel arrays instead of random ones.
+    '''
+    Generates the voxel positions for the 3D projection
+
+    :param width: The width of the voxel grid
+    :param height: The height of the voxel grid
+    :param depth: The depth of the voxel grid
+
+    :return: data, colors
+    '''
+
     data, colors = [], []
     foreground_mask = []
     color_images = []
+
+    # Iterate over the cameras to retrieve the foreground masks and color images for the current frame
     for n_camera in range(1, settings.NUM_CAMERAS+1):
         video_path = f'data/cam{n_camera}/foreground_mask.avi'
         cap = cv.VideoCapture(video_path)
@@ -93,141 +54,159 @@ def set_voxel_positions(width, height, depth):
         cap_color = cv.VideoCapture(video_path_color)
         cap_color.set(cv.CAP_PROP_POS_FRAMES, frame_number)
         _, frame_color = cap_color.read()
-        color_images.append(frame_color) # TODO: NEW
+        color_images.append(frame_color)
         cap.release()
         cap_color.release()
-    voxel_volume = np.zeros((width, height, depth, settings.NUM_CAMERAS), dtype=bool)
-    lookup_table = create_lookup_table(voxel_volume)
-    voxel_to_colors = np.zeros((width, height, depth, settings.NUM_CAMERAS, 3), dtype=int) # TODO: NEW
 
-    visible_per_camera = np.zeros(settings.NUM_CAMERAS)
+    # Create a voxel volume
+    voxel_volume = np.zeros((width, height, depth, settings.NUM_CAMERAS), dtype=bool)
+    # Create a list to store the voxel coordinates and the corresponding colors
+    voxel_to_colors = np.zeros((width, height, depth, settings.NUM_CAMERAS, 3), dtype=int)
+    # Create a lookup table to store the voxel coordinates and the corresponding pixel coordinates for each camera
+    lookup_table = create_lookup_table(voxel_volume)
+
     # Iterate over pixels in the lookup table
     for voxel_coords, n_camera, pixel_coords in lookup_table:
         # Check if pixel is foreground in the corresponding view
         if is_foreground(pixel_coords, foreground_mask[n_camera-1]):
-            visible_per_camera[n_camera-1] += 1
+            # Mark the voxel as visible in the corresponding camera
             voxel_volume[voxel_coords[0], voxel_coords[1], voxel_coords[2], (n_camera-1)] = True
-            color = color_images[n_camera-1][int(pixel_coords[1]), int(pixel_coords[0]), :]
-            voxel_to_colors[voxel_coords[0], voxel_coords[1], voxel_coords[2], (n_camera-1)] = color # TODO: end NEW
-    
-    # TEST CODE TO COUNT VISIBLE VOXELS PER CAMERA
-    for c in range(settings.NUM_CAMERAS):
-        print(f"Camera {c+1}: {visible_per_camera[c]} visible voxels")
+            # Store the color of the voxel in the corresponding camera
+            color = color_images[n_camera-1][int(pixel_coords[0]), int(pixel_coords[1]), :]
+            # Store the color in the voxel_to_colors array
+            voxel_to_colors[voxel_coords[0], voxel_coords[1], voxel_coords[2], (n_camera-1)] = color
 
     visible_all_cameras = 0
     # Iterate over voxels to mark them visible if visible in all views
     voxels = np.all(voxel_volume, axis=3)
+    # Set the voxel color visibility array to store the visibility of each voxel in each camera
     voxel_color_visibility = np.zeros((settings.NUM_CAMERAS, width, height, depth), dtype=bool)
-    voxels_for_colors = voxels.copy()
     for n_camera in range(1, settings.NUM_CAMERAS+1):
-        # SET THE CORRECT PARAMETERS FOR EACH CAMERA HERE
+        # Get the camera positions and swap the y and z coordinates
         camera_position, _ = get_cam_positions()
         camera_position[n_camera-1][1], camera_position[n_camera-1][2] = camera_position[n_camera-1][2], camera_position[n_camera-1][1]
-        # print("number of true values in voxels (before argwhere): ", np.count_nonzero(voxels))
+        # Get the voxel positions
         voxel_positions = np.argwhere(voxels)
-        # print("number of true values in voxels (after argwhere): ", np.count_nonzero(voxels))
+        # Create a copy of the voxels array to store the colors
+        voxels_for_colors = voxels.copy()
+        # Set the voxel color visibility array to store the visibility of each voxel in each camera
         voxel_color_visibility[n_camera-1] = ray_trace(camera_position[n_camera-1], voxel_positions, voxels_for_colors)
-        # print("number of true values in voxel_color_visibility cam 1: ", np.count_nonzero(voxel_color_visibility[n_camera-1]))
-        # print("number of true values in voxels: ", np.count_nonzero(voxels))
-        # TODO: Define the output
-    count_colors = 0
-    count_black = 0
+    
+    # Iterate over voxels to store the visible ones
     for x in range(width):
         for y in range(height):
             for z in range(depth):
                 if voxels[x, y, z]:
-                    # voxel_volume[x, y, z] = True
-                    # print(f'Voxel at {x, y, z} is visible in all views')
                     visible_all_cameras += 1
-                    data.append([(x*block_size - width/2) - resolution/2, (z*block_size), (y*block_size - depth/2) - resolution/2])
-                    # colors.append([x / width, z / depth, y / height])
+                    # Store the voxel coordinates to output
+                    data.append([(x*block_size - width/2) - settings.GRID_TILE_SIZE/2, (z*block_size), (y*block_size - depth/2) - settings.GRID_TILE_SIZE/2])
                     color_voxel_cam = []
+                    # Iterate over the cameras to store the colors if the voxel is visible on that camera
                     for n_camera in range(1, settings.NUM_CAMERAS+1):
                         if voxel_color_visibility[n_camera-1, x, y, z]:
                             color_voxel_cam.append(voxel_to_colors[x, y, z, n_camera-1] / 255)
+                    
+                    # If the voxel is visible in at least one camera, store the average color otherwise store a shade of grey
                     if len(color_voxel_cam) > 0:
-                        print("color_voxel_cam size: ", len(color_voxel_cam))
-                        # if len(color_voxel_cam) > settings.NUM_CAMERAS:
-                            # print(f"Voxel at {x, y, z} has more than 4 colors")
-                        # print("color_voxel_cam: ", color_voxel_cam)
-                        # print("shape color_voxel_cam: ", np.shape(color_voxel_cam))
-                        color_voxel = np.mean(color_voxel_cam, axis=0)
-                        count_colors += 1
+                        color_voxel = np.mean(color_voxel_cam, axis=0) # TODO fix
                     else:
-                        color_voxel = [0, 0, 0]
-                        count_black += 1
-                    # if voxel_color_visibility[1][x, y, z]:
-                    #     # Red voxel
-                    #     color_voxel = [1, 0, 0]
-                    # else:
-                    #     # Black voxel
-                    #     color_voxel = [0, 0, 0]
+                        color_voxel = [0, 0, 0] # TODO: Change to some shade of grey
                     colors.append(color_voxel)
     
     
     print(f"Total voxels visible in all cameras: {visible_all_cameras}")
-    print(f"Total colored voxels: {count_colors}")
-    print(f"Total black voxels: {count_black}")
 
-    # for x in range(width):
-    #     for y in range(height):
-    #         for z in range(depth):
-    #             if random.randint(0, 1000) < 5:
-    #                 data.append([x*block_size - width/2, y*block_size, z*block_size - depth/2])
-    #                 colors.append([x / width, z / depth, y / height])
-    mesh(voxels)
-    print("Saved Mesh to voxel_mesh.png")
+    # Create a mesh of the voxels
+    generate_mesh(voxels, settings.FRAME_NUMBER)
+    print(f"Saved Mesh to voxel_mesh_frame_{settings.FRAME_NUMBER}.png")
+
     return data, colors
 
-
 def get_cam_positions():
-    # Generates dummy camera locations at the 4 corners of the room
-    # TODO: You need to input the estimated locations of the 4 cameras in the world coordinates.
-    cameraposition = np.zeros((4, 3, 1))
-    for c in range(1, settings.NUM_CAMERAS+1):
-        _, _, rvecs, tvecs = read_camera_parameters(c)
+    '''
+    Returns the camera positions and colors for each camera
+
+    :return: cameraposition2, colors
+    '''
+    
+    cam_pos = np.zeros((4, 3, 1))
+    for n_camera in range(1, settings.NUM_CAMERAS+1):
+        # Get the camera parameters
+        _, _, rvecs, tvecs = read_camera_parameters(n_camera)
+        # Calculate the rotation matrix
         rotM = cv.Rodrigues(rvecs)[0]
-        cameraposition[(c-1)] = (-np.dot(np.transpose(rotM), tvecs / settings.GRID_TILE_SIZE))
+        # Calculate the camera positions
+        cam_pos[(n_camera-1)] = (-np.dot(np.transpose(rotM), tvecs / settings.GRID_TILE_SIZE))
 
-    cameraposition2 = [[cameraposition[0][0][0], -cameraposition[0][2][0], cameraposition[0][1][0]],
-                       [cameraposition[1][0][0], -cameraposition[1][2][0], cameraposition[1][1][0]],
-                       [cameraposition[2][0][0], -cameraposition[2][2][0], cameraposition[2][1][0]],
-                       [cameraposition[3][0][0], -cameraposition[3][2][0], cameraposition[3][1][0]]]
+    # Set the camera positions (and swap the y and z coordinates)
+    camera_positions = [[cam_pos[0][0][0], -cam_pos[0][2][0], cam_pos[0][1][0]],
+                       [cam_pos[1][0][0], -cam_pos[1][2][0], cam_pos[1][1][0]],
+                       [cam_pos[2][0][0], -cam_pos[2][2][0], cam_pos[2][1][0]],
+                       [cam_pos[3][0][0], -cam_pos[3][2][0], cam_pos[3][1][0]]]
 
-    # Different colors are assigned to each of the cameras
-    colors = [[1.0, 0, 0], [0, 1.0, 0], [0, 0, 1.0], [1.0, 1.0, 0]]
-    return cameraposition2, colors
+    # Assign different colors to different cameras
+    colors = [[1.0, 0, 0], [0, 1.0, 0], [0, 0, 1.0], [1.0, 0, 1.0]]
+
+    return camera_positions, colors
 
 
 def get_cam_rotation_matrices():
-    # Generates dummy camera rotation matrices, looking down 45 degrees towards the center of the room
-    # TODO: You need to input the estimated camera rotation matrices (4x4) of the 4 cameras in the world coordinates.
-    cam_angles = [[0, 45, -45], [0, 135, -45], [0, 225, -45], [0, 315, -45]]
-    cam_rotations = [glm.mat4(1), glm.mat4(1), glm.mat4(1), glm.mat4(1)]
+    '''
+    Returns the camera rotation matrices for each camera
+
+    :return: cam_rotations
+    '''
+
+    cam_rotations = []
+    # Iterate over the cameras to retrieve the rotation matrices
+    for n_camera in range(1, settings.NUM_CAMERAS+1):
+        # Get the camera parameters
+        _, _, rvecs, _ = read_camera_parameters(n_camera)
+        # Calculate the rotation matrix
+        rotM = cv.Rodrigues(rvecs)[0]
+        # Post process the camera rotation matrix
+        rotM = rotM.transpose()
+        rotM = [rotM[0], rotM[2], rotM[1]]
+        cam_rotations.append(glm.mat4(np.matrix(rotM).T))
+
+    # For each rotation matrix, rotate it by -90 degrees around the y-axis
     for c in range(len(cam_rotations)):
-        cam_rotations[c] = glm.rotate(cam_rotations[c], cam_angles[c][0] * np.pi / 180, [1, 0, 0])
-        cam_rotations[c] = glm.rotate(cam_rotations[c], cam_angles[c][1] * np.pi / 180, [0, 1, 0])
-        cam_rotations[c] = glm.rotate(cam_rotations[c], cam_angles[c][2] * np.pi / 180, [0, 0, 1])
+        cam_rotations[c] = glm.rotate(cam_rotations[c], -np.pi/2 , [0, 1, 0])
+
     return cam_rotations
 
 
 # Our extra functions
 
 def create_lookup_table(voxel_volume):
+    '''
+    Creates a look-up table to store the voxel coordinates and the corresponding pixel coordinates for each camera
+
+    :param voxel_volume: The voxel volume
+
+    :return: lookup_table
+    '''
+
     lookup_table = []
 
-    # Retrieve the variable from the pickle file if lookup table is already created TODO: Remove!!!
+    # Retrieve the variable from the pickle file if a lookup table has been already created
     if os.path.exists('lookup_table.pkl'):
         with open('lookup_table.pkl', 'rb') as f:
             return pickle.load(f)
     
-    (heightImg, widthImg) = cv.imread(f'data/cam1/background_model.jpg', 0).shape # TODO: Generalise to all the cameras but without having it do it for each iteration?
+    # Get the dimensions of the background model
+    (heightImg, widthImg) = cv.imread(f'data/cam1/background_model.jpg', 0).shape
+    
+    # Iterate over the voxel volume to create the look-up table
     for x in tqdm(range(voxel_volume.shape[0]), desc="Lookup Table Progress"):
         for y in range(voxel_volume.shape[1]):
             for z in range(voxel_volume.shape[2]):
-                voxel_point = np.array([[(x*block_size - voxel_volume.shape[0]/2) * resolution, (y*block_size - voxel_volume.shape[1]/2) * resolution, -z*block_size * resolution]], dtype=np.float32)
+                # Calculate the voxel point for the opencv projectPoints function
+                voxel_point = np.array([[(x*block_size - voxel_volume.shape[0]/2) * settings.GRID_TILE_SIZE, (y*block_size - voxel_volume.shape[1]/2) * settings.GRID_TILE_SIZE, -z*block_size * settings.GRID_TILE_SIZE]], dtype=np.float32)
 
+                # Iterate over the cameras
                 for c in range(1, settings.NUM_CAMERAS+1):
+                    # Get the camera parameters
                     camera_matrix, distortion_coeffs, rotation_vector, translation_vector = read_camera_parameters(c)
                     # Project voxel point onto image plane of camera c
                     img_point, _ = cv.projectPoints(voxel_point, rotation_vector, translation_vector, camera_matrix, distortion_coeffs)
@@ -240,20 +219,6 @@ def create_lookup_table(voxel_volume):
                         # Store {XV, YV, ZV}, c and {xim, yim} in the look-up table
                         lookup_table.append((((x, y, z), c, img_point)))
 
-
-    # TEST CODE TO COUNT ENTRIES IN LOOKUP TABLE
-    # Dictionary to store counts for each camera
-    camera_counts = np.zeros(settings.NUM_CAMERAS)
-    
-    # Iterate over the lookup table
-    for entry in lookup_table:
-        (_, c, _) = entry
-        # Increment the count for the camera index
-        camera_counts[c-1] += 1
-    
-    for c in range(settings.NUM_CAMERAS):
-        print(f"Camera {c+1}: {camera_counts[c]} entries")
-
     # Save the variable to a pickle file
     with open('lookup_table.pkl', 'wb') as f:
         pickle.dump(lookup_table, f, protocol=4)
@@ -261,11 +226,30 @@ def create_lookup_table(voxel_volume):
     return lookup_table
 
 def is_foreground(pixel_coords, foreground_mask):
+    '''
+    Checks if a pixel is foreground in the corresponding view
+
+    :param pixel_coords: The pixel coordinates
+    :param foreground_mask: The foreground mask
+
+    :return: True if the pixel is foreground, False otherwise
+    '''
+
     # Check if pixel is foreground in the corresponding view
     y, x = int(pixel_coords[0]), int(pixel_coords[1]) # OpenCV uses (y, x) indexing
+
     return foreground_mask[y, x] == 255
 
-def mesh(voxels):
+def generate_mesh(voxels, frame_number):
+    '''
+    Generates the mesh of the voxels
+
+    :param voxels: The voxel volume
+    :param frame_number: The frame number for the video
+
+    :return: None (but saves the image to a file)
+    '''
+
     # Use marching cubes to obtain the surface mesh of these ellipsoids
     verts, faces, _, _ = measure.marching_cubes(voxels, 0)
 
@@ -279,14 +263,24 @@ def mesh(voxels):
     mesh.set_edgecolor('k')
     ax.add_collection3d(mesh)
 
-    ax.set_xlim((-config['world_width']+100)/2, (config['world_width']+100)/2)
+    # Set the viewing angle
+    ax.set_xlim((-config['world_width']+100)/2, (config['world_width']+100)/2) # TODO: Fix these according to the last chosen size of the voxel grid
     ax.set_ylim((-config['world_height']+100)/2, (config['world_height']+100)/2)
     ax.set_zlim(0, config['world_depth'])
 
     plt.tight_layout()
-    plt.savefig('voxel_mesh.png')
+    plt.savefig(f'voxel_mesh_frame_{frame_number}.png')
 
 def create_background_model_gmm(video_path):
+    '''
+    Creates a background model using the Gaussian Mixture Model
+
+    :param video_path: The path to the video
+
+    :return: background_model
+    '''
+
+    # Open the video file
     cap = cv.VideoCapture(video_path)
     if not cap.isOpened():
         print("Error opening background video file")
@@ -295,6 +289,7 @@ def create_background_model_gmm(video_path):
     # Create the background subtractor object
     backSub = cv.createBackgroundSubtractorMOG2(history=500, varThreshold=16, detectShadows=False)
 
+    # Iterate over the frames to create the background model
     while True:
         ret, frame = cap.read()
         if not ret:
@@ -307,14 +302,27 @@ def create_background_model_gmm(video_path):
     background_model = backSub.getBackgroundImage()
     
     cap.release()
+
     # Save the background model
     folder_path = os.path.dirname(video_path)
     cv.imwrite(f'{folder_path}/background_model.jpg', background_model)
+
     return background_model
 
-def background_subtraction(frame, background_model_path, optimal_thresholds):
-    h_thresh, s_thresh, v_thresh = optimal_thresholds
-    # Load the background model
+def background_subtraction(frame, background_model_path, thresholds):
+    '''
+    Subtracts the background from the frame
+
+    :param frame: The frame
+    :param background_model_path: The path to the background model
+    :param thresholds: The thresholds for the background subtraction
+
+    :return: final_mask
+    '''
+
+    # Unpack the optimal thresholds
+    h_thresh, s_thresh, v_thresh = thresholds
+    # Load the background model and convert it to HSV
     background_model = cv.imread(background_model_path)
     background_model_hsv = cv.cvtColor(background_model, cv.COLOR_BGR2HSV)
 
@@ -330,36 +338,47 @@ def background_subtraction(frame, background_model_path, optimal_thresholds):
     _, thresh_v = cv.threshold(diff[:,:,2], v_thresh, 255, cv.THRESH_BINARY)
 
 
-    # Combine the thresholds 
+    # Combine the thresholds
     threshold_mask = cv.bitwise_and(thresh_v, cv.bitwise_and(thresh_h, thresh_s))
 
-
-    # Dilation 1 to fill in gaps
+    # Large dilation to create a big mask around the subject
     kernel_1 = np.ones((5,5), np.uint8)
     dilation_mask = cv.dilate(threshold_mask, kernel_1, iterations=1)
 
-    # BLOB 1 DETECTION AND REMOVAL
-    # Find contours
+    # Find contours for the blob algorithm
     contours_1, _ = cv.findContours(dilation_mask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
 
-    # Filter contours based on area to identify blobs
-    min_blob_area_1 = 1500  # Adjust this threshold as needed
+    # Filter contours based on area to identify blobs (large area to be sure to clean the whole image)
+    min_blob_area_1 = 1500 
     blobs_1 = [cnt for cnt in contours_1 if cv.contourArea(cnt) > min_blob_area_1]
 
     # Draw the detected blobs
     blob_mask = np.zeros_like(dilation_mask)
     cv.drawContours(blob_mask, blobs_1, -1, (255), thickness=cv.FILLED)
 
-    dilation_mask_bitw = cv.bitwise_and(threshold_mask, blob_mask)
+    # Bitwise AND to get the final mask
+    final_mask = cv.bitwise_and(threshold_mask, blob_mask)
 
-    return dilation_mask_bitw
+    return final_mask
 
 def manual_segmentation_comparison(first_video_frame, background_model_path, manual_mask_path, steps=[50, 10, 5, 1]):
+    '''
+    Finds the optimal thresholds for the background subtraction using the manual mask
+
+    :param first_video_frame: The first frame of the video
+    :param background_model_path: The path to the background model
+    :param manual_mask_path: The path to the manual mask
+    :param steps: The sizes of the steps for the background subtraction
+
+    :return: optimal_thresholds
+    '''
+    # Initialize the optimal thresholds and score
     optimal_thresholds = None
     optimal_score = float('inf')
     previous_step = 255
     optimal_thresholds = (0, 0, 0)
 
+    # Nested loops for searching threshold values with increasingly small steps
     for current_step in steps:  # Ensure a final fine-grained search
         print(f"\nSearching with step size {current_step}")
 
@@ -374,11 +393,14 @@ def manual_segmentation_comparison(first_video_frame, background_model_path, man
         for h_thresh in tqdm(search_ranges['hue'], desc="Hue Progress"):
             for s_thresh in tqdm(search_ranges['saturation'], desc="Saturation Progress", leave=False):
                 for v_thresh in tqdm(search_ranges['value'], desc="Value Progress", leave=False):
+                    # Apply the background subtraction with the current thresholds
                     test_threshold = (h_thresh, s_thresh, v_thresh)
                     segmented = background_subtraction(first_video_frame, background_model_path, test_threshold) # TODO: Change to frame
                     xor_result = cv.bitwise_xor(segmented, cv.imread(manual_mask_path, 0))
+                    # Assign the score based on the number of non-zero pixels in the XOR result
                     score = cv.countNonZero(xor_result)
-
+                    
+                    # Update the optimal thresholds if the current score is better
                     if score < optimal_score:
                         optimal_score = score
                         optimal_thresholds = (h_thresh, s_thresh, v_thresh)
@@ -389,12 +411,23 @@ def manual_segmentation_comparison(first_video_frame, background_model_path, man
         # Decrease step size for the next iteration
         previous_step = current_step
 
+    # Print the final optimal thresholds
     print(f'Optimal thresholds: Hue={optimal_thresholds[0]}, Saturation={optimal_thresholds[1]}, Value={optimal_thresholds[2]}')
 
     return optimal_thresholds
 
 def create_segmented_video(video_path, background_model_path, optimal_thresholds):
+    '''
+    Creates a video with the segmented frames
+
+    :param video_path: The path to the video
+    :param background_model_path: The path to the background model
+    :param optimal_thresholds: The optimal thresholds for the background subtraction
+
+    :return: None
+    '''
     
+    # Create the output video file path
     folder_path = os.path.dirname(video_path)
     output_video_path = f'{folder_path}/foreground_mask.avi'  # Update with the desired output video file path
     if os.path.exists(output_video_path):
@@ -414,23 +447,23 @@ def create_segmented_video(video_path, background_model_path, optimal_thresholds
 
     # Create a VideoWriter object to write the modified frames to a new video
     fourcc = cv.VideoWriter_fourcc('M', 'J', 'P', 'G')
-    # print("Fourcc: ", fourcc)
     out = cv.VideoWriter(output_video_path, fourcc, fps, size, isColor=False)
 
+    # Iterate over the frames to create the segmented video
     while True:
         
         ret, frame = cap.read()
         if not ret:
             break
 
+        # Apply the background subtraction to each frame
         segmented = background_subtraction(frame, background_model_path, optimal_thresholds)
 
-        # Dilation to fill in gaps
+        # Apply dilation to fill in gaps
         kernel_2 = np.ones((2, 2), np.uint8)
         dilation_mask_2 = cv.dilate(segmented, kernel_2, iterations=1)
 
-        # BLOB DETECTION AND REMOVAL
-        # Find contours
+        # Find contours for the blob mask
         contours_2, _ = cv.findContours(dilation_mask_2, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
 
         # Filter contours based on area to identify blobs
@@ -441,22 +474,24 @@ def create_segmented_video(video_path, background_model_path, optimal_thresholds
         blob_mask_2 = np.zeros_like(dilation_mask_2)
         cv.drawContours(blob_mask_2, blobs_2, -1, (255), thickness=cv.FILLED)
 
-        segmented = blob_mask_2 # TODO: Continue the code here to save all the frames in a video file
+        segmented = blob_mask_2
 
+        # Write the segmented frame to the output video
         out.write(segmented)
-
-        # cv.imshow('Foreground Mask', segmented)
-        # cv.waitKey(0) 
-        # cv.destroyAllWindows()
-        # cv.waitKey(1)
-
-        # cv.imwrite(f'data/cam{camera_number}/foreground_mask.jpg', segmented)
     
     cap.release()
     out.release()
     cv.destroyAllWindows()
 
 def read_camera_parameters(camera_number):
+    '''
+    Reads the camera parameters from the XML file
+
+    :param camera_number: The camera number
+
+    :return: camera_matrix, dist_coeffs, rvecs, tvecs
+    '''
+    # Set the file name
     directory = f'data/cam{camera_number}'
     file_name = f"{directory}/config.xml"
 
@@ -473,17 +508,73 @@ def read_camera_parameters(camera_number):
 
     return camera_matrix, dist_coeffs, rvecs, tvecs
 
-'''# Call the function to get the camera intrinsics and extrinsics for each camera
+def ray_trace(camera_position, voxel_positions, voxel_grid):
+    """
+    Determines which voxels are visible from the camera position.
+
+    :param camera_position: The (x, y, z) coordinates of the camera.
+    :param voxel_positions: A list of (x, y, z) coordinates for each voxel.
+    :param voxel_grid: An array representing the presence (True) or absence (False) of voxels.
+    :return: A list of booleans indicating visibility for each voxel in voxel_positions.
+    """
+
+    for target_voxel in voxel_positions:
+        if voxel_grid[target_voxel[0], target_voxel[1], target_voxel[2]]:
+            # Calculate the direction vector from the camera to the target voxel
+            direction = target_voxel - camera_position
+            distance_to_target = np.linalg.norm(direction)
+            direction /= distance_to_target 
+
+            # Step size for the ray
+            step_size = 1.0
+
+            # Flag: True if the current voxel is the first voxel along the ray
+            is_first = True
+            # Flag: True if the ray is outside the voxel grid
+            outside = True
+
+            step = 1
+            while True:
+                # Calculate the point along the ray at the current step
+                point_along_ray = camera_position + direction * step * step_size
+                step += 1
+                # Round the point to the nearest voxel
+                x, y, z = np.round(point_along_ray).astype(int)
+                # print("Point along ray: ", point_along_ray)
+                
+                # Check if we're outside the bounds of the voxel grid
+                if x < 0 or x >= voxel_grid.shape[0] or y < 0 or y >= voxel_grid.shape[1] or z < 0 or z >= voxel_grid.shape[2]:
+                    # Break the loop if we're outside the voxel grid
+                    if outside == False:
+                        break
+                    continue
+                
+                outside = False
+                
+                # Check if the current voxel is on
+                if voxel_grid[x, y, z]:
+                    # If the current voxel is the first visible voxel along the ray, keeps it in the visible ones
+                    if is_first:
+                        is_first = False
+                    else:
+                        # If the current voxel is not the first visible voxel along the ray, then it is occluded
+                        voxel_grid[x, y, z] = False
+
+    return voxel_grid
+
+
+# Call the function to get the camera intrinsics and extrinsics for each camera
 for camera_number in range(1, settings.NUM_CAMERAS+1):
+    # Analise the video and gets the camera intrinsics and extrinsics
     cc.get_camera_intrinsics_and_extrinsics(camera_number)
-    # background model
+    # Create the background model
     background_video_path = f'data/cam{camera_number}/background.avi'
     background_model = create_background_model_gmm(background_video_path)
-    # manual subtraction
+    # Create the segmented video
     manual_mask_path = f'data/cam{camera_number}/manual_mask.jpg'
     video_path = f'data/cam{camera_number}/video.avi'
     _, first_video_frame = cv.VideoCapture(video_path).read()
     background_model_path = f'data/cam{camera_number}/background_model.jpg'
     optimal_thresholds = manual_segmentation_comparison(first_video_frame, background_model_path, manual_mask_path, steps=[50, 10, 5, 1])
-    create_segmented_video(video_path, background_model_path, optimal_thresholds)'''
+    create_segmented_video(video_path, background_model_path, optimal_thresholds)
     

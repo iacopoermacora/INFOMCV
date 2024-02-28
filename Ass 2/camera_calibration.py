@@ -153,7 +153,8 @@ def add_corners_show_image(gray, img, corners, objp, objpoints, imgpoints, crite
 
     # Draw and display the corners
     cv.namedWindow('img', cv.WINDOW_NORMAL)
-    cv.drawChessboardCorners(img, (settings.CHECKERBOARD_HEIGHT, settings.CHECKERBOARD_WIDTH), corners, True)
+    if subpix:
+        cv.drawChessboardCorners(img, (settings.CHECKERBOARD_HEIGHT, settings.CHECKERBOARD_WIDTH), corners, True)
     cv.imshow('img', img)
     cv.waitKey(settings.IMAGE_VIEW_TIME)
     cv.destroyAllWindows()
@@ -185,7 +186,8 @@ def process_frame(fname, img, objp, objpoints, imgpoints, criteria, mtx, dist, a
     imgpts, jac = cv.projectPoints(axis, rvecs, tvecs, mtx, dist)
     imgpts_cube, jac = cv.projectPoints(cube_points, rvecs, tvecs, mtx, dist)
     img = draw(img, corners_test, imgpts)
-    img = draw_cube(img, imgpts_cube, color=(255, 255, 0), thickness=1)
+    if settings.SHOW_CUBE:
+        img = draw_cube(img, imgpts_cube, color=(255, 255, 0), thickness=1)
     return img, rvecs, tvecs
 
 def validate_calibration(objpoints, imgpoints, rvecs, tvecs, mtx, dist):

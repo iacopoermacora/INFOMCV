@@ -18,15 +18,14 @@ def read_xml_chekerboard(file_path):
 USE_WEBCAM = False
 # Set the error threshold for rejecting low-quality images (DEFAULT: 0.3)
 ERROR_THRESHOLD = 0.5 
-# Define the width and height of the internal chessboard (in squares)
-# width = 5 # TODO: In checkerboard.xml width and height are switched ???
-# height = 7
-# Define the size of the squares of the chessboard in millimeters TODO: I think a problem could be here!
-# square_size = 115
 # Define the size of the grid in millimeters
-GRID_TILE_SIZE = 15
+GRID_TILE_SIZE = 30
 # Plot the camera positions or not (DEFAULT: False)
 PLOT_CAMERA = False
+# Show the 3D cube or not
+SHOW_CUBE = False
+# Show the corners or not
+SHOW_CORNERS = False
 # Interval of seconds between images (DEFAULT: 10)
 INTERVAL = 10
 # Number of cameras to calibrate
