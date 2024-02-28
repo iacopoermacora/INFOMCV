@@ -16,34 +16,6 @@ from skimage import measure
 block_size = 1.0
 resolution = settings.GRID_TILE_SIZE
 
-# def is_directly_visible(voxel_coords, camera_position2, foreground_mask):
-#     # Check if voxel is directly visible in the corresponding view
-
-#     # Convert grid coordinates to the center position of the voxel
-#     voxel_center = np.array([voxel_coords[0] + 0.5, voxel_coords[1] + 0.5, voxel_coords[2] + 0.5])
-    
-#     # Calculate the vector from the camera to the voxel
-#     ray_direction = voxel_center - camera_position2
-#     ray_length = np.linalg.norm(ray_direction)
-#     ray_direction = ray_direction / ray_length
-
-#     # Iterate over the voxels along the ray
-#     step_size = 0.1
-    
-#     for step in range(int(ray_length / step_size)):
-#         # Calculate the position of the voxel along the ray
-#         position = camera_position2 + step * step_size * ray_direction
-#         # Convert the position to grid coordinates
-#         x, y, z = int(position[0]), int(position[1]), int(position[2])
-#         # Check if the voxel is outside the grid
-#         if x < 0 or x >= settings.grid_width or y < 0 or y >= settings.grid_height or z < 0 or z >= settings.grid_depth:
-#             break
-#         # Check if the voxel is visible in the corresponding view
-#         if is_foreground((x, y), foreground_mask):
-#             return False #Obstruction found
-    
-#     return True #No obstruction found
-
 def ray_trace(camera_position, voxel_positions, voxel_grid):
     """
     Determines which voxels are visible from the camera position.
@@ -53,9 +25,11 @@ def ray_trace(camera_position, voxel_positions, voxel_grid):
     :param voxel_grid: A 3D numpy array representing the presence (True) or absence (False) of voxels.
     :return: A list of booleans indicating visibility for each voxel in voxel_positions.
     """
-
+    print("ray_trace")
+    print("camera_position: ", camera_position)
+    print("voxel grid shape: ", np.shape(voxel_grid))
     for target_voxel in voxel_positions:
-        if not voxel_grid[target_voxel[0], target_voxel[1], target_voxel[2]]:
+        if voxel_grid[target_voxel[0], target_voxel[1], target_voxel[2]]:
             direction = target_voxel - camera_position
             distance_to_target = np.linalg.norm(direction)
             direction /= distance_to_target  # Normalize direction vector
@@ -64,15 +38,23 @@ def ray_trace(camera_position, voxel_positions, voxel_grid):
             num_steps = int(distance_to_target / step_size)
 
             is_first = True
-
-            for step in range(1, num_steps):
+            outside = True
+            # for step in range(1, num_steps):
+            step = 1
+            while True:
                 point_along_ray = camera_position + direction * step * step_size
+                step += 1
                 x, y, z = np.round(point_along_ray).astype(int)
+                # print("Point along ray: ", point_along_ray)
                 
                 # Check if we're outside the bounds of the voxel grid
                 if x < 0 or x >= voxel_grid.shape[0] or y < 0 or y >= voxel_grid.shape[1] or z < 0 or z >= voxel_grid.shape[2]:
-                    break
+                    if outside == False:
+                        break
+                    continue
 
+                outside = False
+                
                 if voxel_grid[x, y, z]:  # There's a voxel blocking the view
                     if is_first:
                         is_first = False
@@ -106,7 +88,14 @@ def set_voxel_positions(width, height, depth):
         _, frame = cap.read()
         frame_cvt = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
         foreground_mask.append(frame_cvt) # cv.imread(f'data/cam{n_camera}/foreground_mask.jpg', 0)
-        color_images.append(frame) # TODO: NEW
+
+        video_path_color = f'data/cam{n_camera}/video.avi'
+        cap_color = cv.VideoCapture(video_path_color)
+        cap_color.set(cv.CAP_PROP_POS_FRAMES, frame_number)
+        _, frame_color = cap_color.read()
+        color_images.append(frame_color) # TODO: NEW
+        cap.release()
+        cap_color.release()
     voxel_volume = np.zeros((width, height, depth, settings.NUM_CAMERAS), dtype=bool)
     lookup_table = create_lookup_table(voxel_volume)
     voxel_to_colors = np.zeros((width, height, depth, settings.NUM_CAMERAS, 3), dtype=int) # TODO: NEW
@@ -129,12 +118,20 @@ def set_voxel_positions(width, height, depth):
     # Iterate over voxels to mark them visible if visible in all views
     voxels = np.all(voxel_volume, axis=3)
     voxel_color_visibility = np.zeros((settings.NUM_CAMERAS, width, height, depth), dtype=bool)
+    voxels_for_colors = voxels.copy()
     for n_camera in range(1, settings.NUM_CAMERAS+1):
         # SET THE CORRECT PARAMETERS FOR EACH CAMERA HERE
         camera_position, _ = get_cam_positions()
+        camera_position[n_camera-1][1], camera_position[n_camera-1][2] = camera_position[n_camera-1][2], camera_position[n_camera-1][1]
+        # print("number of true values in voxels (before argwhere): ", np.count_nonzero(voxels))
         voxel_positions = np.argwhere(voxels)
-        voxel_color_visibility[n_camera] = ray_trace(camera_position[n_camera-1], voxel_positions, voxels) # TODO: Insert the correct parameters
+        # print("number of true values in voxels (after argwhere): ", np.count_nonzero(voxels))
+        voxel_color_visibility[n_camera-1] = ray_trace(camera_position[n_camera-1], voxel_positions, voxels_for_colors)
+        # print("number of true values in voxel_color_visibility cam 1: ", np.count_nonzero(voxel_color_visibility[n_camera-1]))
+        # print("number of true values in voxels: ", np.count_nonzero(voxels))
         # TODO: Define the output
+    count_colors = 0
+    count_black = 0
     for x in range(width):
         for y in range(height):
             for z in range(depth):
@@ -144,17 +141,33 @@ def set_voxel_positions(width, height, depth):
                     visible_all_cameras += 1
                     data.append([(x*block_size - width/2) - resolution/2, (z*block_size), (y*block_size - depth/2) - resolution/2])
                     # colors.append([x / width, z / depth, y / height])
+                    color_voxel_cam = []
                     for n_camera in range(1, settings.NUM_CAMERAS+1):
-                        if voxel_color_visibility[n_camera][x, y, z]:
-                            color_voxel.append(voxel_to_colors[(x, y, z), n_camera-1] / 255)
-                    if len(color_voxel) > 0:
-                        color_voxel = np.mean(color_voxel, axis=0)
+                        if voxel_color_visibility[n_camera-1, x, y, z]:
+                            color_voxel_cam.append(voxel_to_colors[x, y, z, n_camera-1] / 255)
+                    if len(color_voxel_cam) > 0:
+                        print("color_voxel_cam size: ", len(color_voxel_cam))
+                        # if len(color_voxel_cam) > settings.NUM_CAMERAS:
+                            # print(f"Voxel at {x, y, z} has more than 4 colors")
+                        # print("color_voxel_cam: ", color_voxel_cam)
+                        # print("shape color_voxel_cam: ", np.shape(color_voxel_cam))
+                        color_voxel = np.mean(color_voxel_cam, axis=0)
+                        count_colors += 1
                     else:
                         color_voxel = [0, 0, 0]
+                        count_black += 1
+                    # if voxel_color_visibility[1][x, y, z]:
+                    #     # Red voxel
+                    #     color_voxel = [1, 0, 0]
+                    # else:
+                    #     # Black voxel
+                    #     color_voxel = [0, 0, 0]
                     colors.append(color_voxel)
     
     
     print(f"Total voxels visible in all cameras: {visible_all_cameras}")
+    print(f"Total colored voxels: {count_colors}")
+    print(f"Total black voxels: {count_black}")
 
     # for x in range(width):
     #     for y in range(height):
@@ -254,7 +267,7 @@ def is_foreground(pixel_coords, foreground_mask):
 
 def mesh(voxels):
     # Use marching cubes to obtain the surface mesh of these ellipsoids
-    verts, faces, normals, values = measure.marching_cubes(voxels, 0)
+    verts, faces, _, _ = measure.marching_cubes(voxels, 0)
 
     # Display resulting triangular mesh using Matplotlib. This can also be done
     # with mayavi (see skimage.measure.marching_cubes docstring).
@@ -460,7 +473,7 @@ def read_camera_parameters(camera_number):
 
     return camera_matrix, dist_coeffs, rvecs, tvecs
 
-# Call the function to get the camera intrinsics and extrinsics for each camera
+'''# Call the function to get the camera intrinsics and extrinsics for each camera
 for camera_number in range(1, settings.NUM_CAMERAS+1):
     cc.get_camera_intrinsics_and_extrinsics(camera_number)
     # background model
@@ -472,5 +485,5 @@ for camera_number in range(1, settings.NUM_CAMERAS+1):
     _, first_video_frame = cv.VideoCapture(video_path).read()
     background_model_path = f'data/cam{camera_number}/background_model.jpg'
     optimal_thresholds = manual_segmentation_comparison(first_video_frame, background_model_path, manual_mask_path, steps=[50, 10, 5, 1])
-    create_segmented_video(video_path, background_model_path, optimal_thresholds)
+    create_segmented_video(video_path, background_model_path, optimal_thresholds)'''
     
