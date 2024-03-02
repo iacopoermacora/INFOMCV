@@ -15,16 +15,16 @@ def find_corners(fname, img, gray, objp, objpoints, imgpoints, criteria):
         print("\tAuto-detect corners: ", fname)
         subpix = True
     else:
-        # if fname.split('/')[-1] == "Test_image.jpg": TODO: Remove this condition, it is only to speed up testing
-        print("\tUnfortunately, the corners were not found automatically. Please select them manually.")
-        print("\tManually select corners: ", fname)
-        corners = manual_corners_selection(gray, img)
-        subpix = False
+        if fname.split('/')[-1] == "Test_image.jpg": # TODO: Remove this condition, it is only to speed up testing
+            print("\tUnfortunately, the corners were not found automatically. Please select them manually.")
+            print("\tManually select corners: ", fname)
+            corners = manual_corners_selection(gray, img)
+            subpix = False
     
-    # if (fname.split('/')[-1] == "Test_image.jpg") or (ret == True): # TODO: Remove this condition, it is only to speed up testing
-    #     corners = add_corners_show_image(gray, img, corners, objp, objpoints, imgpoints, criteria, subpix)
+    if (fname.split('/')[-1] == "Test_image.jpg") or (ret == True): # TODO: Remove this condition, it is only to speed up testing
+        corners = add_corners_show_image(gray, img, corners, objp, objpoints, imgpoints, criteria, subpix)
     
-    corners = add_corners_show_image(gray, img, corners, objp, objpoints, imgpoints, criteria, subpix)
+    # corners = add_corners_show_image(gray, img, corners, objp, objpoints, imgpoints, criteria, subpix)
 
     return corners
 
