@@ -132,7 +132,7 @@ dmypy.json
 .pyre/
 
 # Everything else
-data/
+
 __pycache__/
 *.pkl
 config.json
