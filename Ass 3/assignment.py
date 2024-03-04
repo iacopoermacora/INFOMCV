@@ -12,7 +12,7 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from engine.config import config
 from skimage import measure
 
-import sys
+import color_clustering as col_cl
 
 block_size = 1.0
 
@@ -25,7 +25,6 @@ def generate_grid(width, depth):
             data.append([x*block_size - width/2, -block_size, z*block_size - depth/2])
             colors.append([1.0, 1.0, 1.0] if (x+z) % 2 == 0 else [0, 0, 0])
     return data, colors
-
 
 def set_voxel_positions(width, height, depth):
     '''
@@ -192,7 +191,8 @@ def create_voxel_model(lookup_table, width, height, depth):
         cap.set(cv.CAP_PROP_POS_FRAMES, frame_number)
         _, frame = cap.read()
         frame_cvt = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
-        foreground_mask.append(frame_cvt) # cv.imread(f'data/cam{n_camera}/foreground_mask.jpg', 0)
+        # foreground_mask.append(frame_cvt) # cv.imread(f'data/cam{n_camera}/foreground_mask.jpg', 0)
+        foreground_mask.append(cv.imread(f'manual_masks/manual_mask_{n_camera}.jpg', 0)) # NOTE: Just for testing purposes
 
         video_path_color = f'data/cam{n_camera}/video.avi'
         cap_color = cv.VideoCapture(video_path_color)
@@ -341,6 +341,19 @@ def background_subtraction(frame, background_model_path, thresholds):
 
     # Bitwise AND to get the final mask
     final_mask = cv.bitwise_and(threshold_mask, blob_mask)
+
+    # Find contours for the blob algorithm
+    contours_2, _ = cv.findContours(final_mask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+
+    # Filter contours based on area to identify blobs (large area to be sure to clean the whole image)
+    min_blob_area_2 = 100
+    blobs_2 = [cnt for cnt in contours_2 if cv.contourArea(cnt) > min_blob_area_2]
+
+    # Draw the detected blobs
+    blob_mask_2 = np.zeros_like(final_mask)
+    cv.drawContours(blob_mask_2, blobs_2, -1, (255), thickness=cv.FILLED)
+
+    final_mask = blob_mask_2
 
     return final_mask
 
@@ -543,10 +556,12 @@ def assign_colors(voxel_volume, voxel_colors_per_cam, width, height, depth): # N
     for n_camera in tqdm(range(1, settings.NUM_CAMERAS+1), desc="Color - Ray Tracing"):
         voxel_grid = voxel_volume.copy()
         voxel_grid[1], voxel_grid[2] = voxel_grid[2], voxel_grid[1]
+        voxel_colored = voxel_volume.copy()
+        voxel_colored[1], voxel_colored[2] = voxel_colored[2], voxel_colored[1]
         camera_position[n_camera-1] = [camera_position[n_camera-1][0] + width/2, camera_position[n_camera-1][2] + depth/2, camera_position[n_camera-1][1]]
         print("Camera position: ", camera_position[n_camera-1])
         for target_voxel in tqdm(voxel_positions, desc=f"Color - Ray Tracing - Camera {n_camera}", leave=False):
-            if voxel_grid[target_voxel[0], target_voxel[1], target_voxel[2]]:
+            if voxel_colored[target_voxel[0], target_voxel[1], target_voxel[2]]:
                 # Calculate the direction vector from the camera to the target voxel
                 direction = target_voxel - camera_position[n_camera-1]
                 distance_to_target = np.linalg.norm(direction)
@@ -579,16 +594,17 @@ def assign_colors(voxel_volume, voxel_colors_per_cam, width, height, depth): # N
                     outside = False
                     
                     # Check if the current voxel is on
-                    if voxel_grid[x, y, z]:
+                    if voxel_colored[x, y, z] or (voxel_grid[x, y, z] and is_first):
                         # If the current voxel is the first visible voxel along the ray, keeps it in the visible ones
                         if is_first:
+                            voxel_colored[x, y, z] = True
                             if not voxels_color[x, y, z]:
                                 voxels_color[x, y, z] = []
                             voxels_color[x, y, z].append(voxel_colors_per_cam[target_voxel[0], target_voxel[1], target_voxel[2], n_camera-1]/255)
                             is_first = False
                         else:
                             # If the current voxel is not the first visible voxel along the ray, then it is occluded
-                            voxel_grid[x, y, z] = False
+                            voxel_colored[x, y, z] = False
 
     total_voxels_color = np.array([[[np.mean(lst, axis=0) if lst is not None else [0, 0, 0] for lst in row] for row in subarray] for subarray in voxels_color])
     
