@@ -36,5 +36,8 @@ IMAGE_VIEW_TIME = 100
 FRAME_NUMBER = 0
 # Decide whether to create the mesh or not
 CREATE_MESH = False
-
+# Read the size of the checkerboard
 CHECKERBOARD_SQUARE_SIZE, CHECKERBOARD_WIDTH, CHECKERBOARD_HEIGHT = read_xml_chekerboard("data/checkerboard.xml")
+
+# Number of clusters
+NUMBER_OF_CLUSTERS = 4

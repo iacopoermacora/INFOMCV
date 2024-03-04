@@ -43,8 +43,9 @@ def set_voxel_positions(width, height, depth):
 
     voxel_volume, voxel_colors_per_cam = create_voxel_model(lookup_table, width, height, depth)
     
-    voxels_color = assign_colors(voxel_volume, voxel_colors_per_cam, width, height, depth)
+    # voxels_color, visible_voxels_per_cam, visible_voxels_colors_per_cam = assign_colors(voxel_volume, voxel_colors_per_cam, width, height, depth)
     
+    voxels = []
     # Create a counter to store the number of visible voxels in all cameras
     visible_all_cameras = 0
     # Iterate over voxels to store the visible ones
@@ -54,10 +55,25 @@ def set_voxel_positions(width, height, depth):
                 if voxel_volume[x, z, y]:
                     visible_all_cameras += 1
                     # Store the voxel coordinates to output
-                    data.append([(x*block_size - width/2), (y*block_size), (z*block_size - depth/2)])
+                    voxel_to_display = [x*block_size - width/2, y*block_size, z*block_size - depth/2]
+                    data.append(voxel_to_display)
+                    voxels.append(voxel_to_display) # NOTE: This is for the clustering
                     
-                    colors.append(voxels_color[x, z, y])
-                    # colors.append([x/width, y/height, z/depth])
+                    # colors.append(voxels_color[x, z, y]) TODO: Uncomment to show original colors
+    
+    labels_def, centers = col_cl.cluster_voxels(voxels)
+
+    print(f"Labels: {labels_def}")
+
+    for label in labels_def:
+        if label == 0:
+            colors.append([0, 0, 225])
+        if label == 1:
+            colors.append([0, 255, 0])
+        if label == 2:
+            colors.append([255, 0, 225])
+        if label == 3:
+            colors.append([255, 0, 0])
     
     print(f"Total voxels visible in all cameras: {visible_all_cameras}")
 
@@ -119,7 +135,6 @@ def get_cam_rotation_matrices():
         cam_rotations[c] = glm.rotate(cam_rotations[c], -np.pi/2 , [0, 1, 0])
 
     return cam_rotations
-
 
 # Our extra functions
 
@@ -553,13 +568,15 @@ def assign_colors(voxel_volume, voxel_colors_per_cam, width, height, depth): # N
     camera_position, _ = get_cam_positions()
     print("Camera positions: ", camera_position)
 
+    visible_voxels_per_cam = np.zeros((settings.NUM_CAMERAS, width, depth, height), dtype=bool)
+    visible_voxels_colors_per_cam = np.zeros((settings.NUM_CAMERAS, width, depth, height, 3), dtype=int)
+
     for n_camera in tqdm(range(1, settings.NUM_CAMERAS+1), desc="Color - Ray Tracing"):
         voxel_grid = voxel_volume.copy()
         voxel_grid[1], voxel_grid[2] = voxel_grid[2], voxel_grid[1]
         voxel_colored = voxel_volume.copy()
         voxel_colored[1], voxel_colored[2] = voxel_colored[2], voxel_colored[1]
         camera_position[n_camera-1] = [camera_position[n_camera-1][0] + width/2, camera_position[n_camera-1][2] + depth/2, camera_position[n_camera-1][1]]
-        print("Camera position: ", camera_position[n_camera-1])
         for target_voxel in tqdm(voxel_positions, desc=f"Color - Ray Tracing - Camera {n_camera}", leave=False):
             if voxel_colored[target_voxel[0], target_voxel[1], target_voxel[2]]:
                 # Calculate the direction vector from the camera to the target voxel
@@ -601,6 +618,8 @@ def assign_colors(voxel_volume, voxel_colors_per_cam, width, height, depth): # N
                             if not voxels_color[x, y, z]:
                                 voxels_color[x, y, z] = []
                             voxels_color[x, y, z].append(voxel_colors_per_cam[target_voxel[0], target_voxel[1], target_voxel[2], n_camera-1]/255)
+                            visible_voxels_per_cam[n_camera-1, x, y, z] = True
+                            visible_voxels_colors_per_cam[n_camera-1, x, y, z] = voxel_colors_per_cam[target_voxel[0], target_voxel[1], target_voxel[2], n_camera-1]/255
                             is_first = False
                         else:
                             # If the current voxel is not the first visible voxel along the ray, then it is occluded
@@ -611,7 +630,7 @@ def assign_colors(voxel_volume, voxel_colors_per_cam, width, height, depth): # N
     with open(f'assign_colors.pkl', 'wb') as f:
         pickle.dump((total_voxels_color), f, protocol=4)
 
-    return total_voxels_color
+    return total_voxels_color, visible_voxels_per_cam, visible_voxels_colors_per_cam
 
 # Offline preparatory part
 
