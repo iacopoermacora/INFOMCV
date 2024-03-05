@@ -55,24 +55,28 @@ def set_voxel_positions(width, height, depth):
                     visible_all_cameras += 1
                     # Store the voxel coordinates to output
                     voxel_to_display = [x*block_size - width/2, y*block_size, z*block_size - depth/2]
-                    data.append(voxel_to_display)
+                    # data.append(voxel_to_display)
                     voxels.append(voxel_to_display) # NOTE: This is for the clustering
                     
                     # colors.append(total_voxels_color[idx][x, z, y])
     
-    labels_def, centers = col_cl.cluster_voxels(voxels)
+    labels_def, centers, voxels = col_cl.cluster_voxels(voxels)
 
     print(f"Labels: {labels_def}")
 
-    for label in labels_def:
+    for label, voxel in zip(labels_def, voxels):
         if label == 0:
             colors.append([0, 0, 225])
+            data.append(voxel)
         if label == 1:
             colors.append([0, 255, 0])
+            data.append(voxel)
         if label == 2:
             colors.append([255, 0, 225])
+            data.append(voxel)
         if label == 3:
             colors.append([255, 0, 0])
+            data.append(voxel)
     
     print(f"Total voxels visible in all cameras: {visible_all_cameras}")
 
