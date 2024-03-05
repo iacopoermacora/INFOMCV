@@ -125,7 +125,7 @@ def cluster_voxels(voxels):
     return labels_def_no_outliers, centers_no_outliers, voxels_no_outliers
 
 def final_labeling(cam_color_models, visible_voxels_colors_per_cam, visible_voxels_per_cam, roi):
-    
+    return
 
 
 def online_phase(cam_color_models, voxels, visible_voxels_colors_per_cam, visible_voxels_per_cam):
@@ -134,7 +134,7 @@ def online_phase(cam_color_models, voxels, visible_voxels_colors_per_cam, visibl
     K-means clustering, a comparison of the offline color models to the online GMMs probabilities, a
     label matching to obtain the final labelling of each person and a 2D path tracking on the floor.
     """
-    
+    # NOTE: Retrieve the correct parameters to give to the function
     cam_color_models_offline = color_model(visible_voxels_colors_per_cam, visible_voxels_per_cam)
     cam_color_models_online = color_model(visible_voxels_colors_per_cam, visible_voxels_per_cam)
     
@@ -145,14 +145,22 @@ def online_phase(cam_color_models, voxels, visible_voxels_colors_per_cam, visibl
     for n_camera in range(1, settings.NUM_CAMERAS+1):
         cost_matrix = np.zeros((len(voxels), len(cam_color_models_offline[n_camera-1])))
 
-        for label in range(len(cam_color_models_offline[n_camera])):
+        for label_offline, color_model_offline in enumerate(cam_color_models_offline[n_camera]):
             # Get the GMM model for the person
-            model_offline = cam_color_models_offline[n_camera-1][label]
-            model_online = cam_color_models_online[n_camera-1][label]
-            
-            # Get the probability of the person being in the scene  
-            log_likelihood_offline.append(model_offline.score_samples(roi)) # not sure about roi
-            log_likelihood_online.append(model_online.score_samples(roi)) # not sure about roi
+            for label_online, color_model_online in enumerate(cam_color_models_online[n_camera]):
+                # Get the probability of the person being in the scene
+                
+                # PSEUDO:
+                # 1. Calculate the distance between the offline and the online model
+                # 2. Insert the distance in the cost matrix
+                '''# Get the probability of the person being in the scene
+                log_likelihood_offline.append(model_offline.score_samples(roi)) # NOTE: not sure about roi
+                log_likelihood_online.append(model_online.score_samples(roi)) # NOTE: not sure about roi'''
+
+        # 3. Call the hungarian algorithm
+        # 4. Save the values in the cost matrix
+    
+    # 5. Save based on majority label over the different cameras (hope for no ties or implement a preference system over the cameras)
 
     # Calculate the cost matrix
     cost_matrix[:, label] = log_likelihood_offline - log_likelihood_online
