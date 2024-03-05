@@ -39,11 +39,10 @@ def set_voxel_positions(width, height, depth):
 
     data, colors = [], []
     # Create a lookup table to store the voxel coordinates and the corresponding pixel coordinates for each camera
-    lookup_table = create_lookup_table(width, height, depth)
 
-    voxel_volume, voxel_colors_per_cam = create_voxel_model(lookup_table, width, height, depth)
-    
-    # voxels_color, visible_voxels_per_cam, visible_voxels_colors_per_cam = assign_colors(voxel_volume, voxel_colors_per_cam, width, height, depth)
+    idx = 1
+
+    total_voxel_volume= create_all_models() # TODO:  total_voxels_color, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam 
     
     voxels = []
     # Create a counter to store the number of visible voxels in all cameras
@@ -52,14 +51,14 @@ def set_voxel_positions(width, height, depth):
     for x in tqdm(range(width), desc="Voxel Projection - Visible Voxels"):
         for y in range(height):
             for z in range(depth):
-                if voxel_volume[x, z, y]:
+                if total_voxel_volume[idx][x, z, y]:
                     visible_all_cameras += 1
                     # Store the voxel coordinates to output
                     voxel_to_display = [x*block_size - width/2, y*block_size, z*block_size - depth/2]
                     data.append(voxel_to_display)
                     voxels.append(voxel_to_display) # NOTE: This is for the clustering
                     
-                    # colors.append(voxels_color[x, z, y]) TODO: Uncomment to show original colors
+                    # colors.append(total_voxels_color[idx][x, z, y])
     
     labels_def, centers = col_cl.cluster_voxels(voxels)
 
@@ -79,8 +78,8 @@ def set_voxel_positions(width, height, depth):
 
     # Create a mesh of the voxels
     if settings.CREATE_MESH:
-        generate_mesh(voxel_volume, settings.FRAME_NUMBER)
-        print(f"Saved Mesh to voxel_mesh_frame_{settings.FRAME_NUMBER}.png")
+        generate_mesh(total_voxel_volume[idx], idx)
+        print(f"Saved Mesh to voxel_mesh_frame_{idx}.png")
 
     return data, colors
 
@@ -138,7 +137,7 @@ def get_cam_rotation_matrices():
 
 # Our extra functions
 
-def create_lookup_table(width, height, depth):
+def create_lookup_table():
     '''
     Creates a look-up table to store the voxel coordinates and the corresponding pixel coordinates for each camera
 
@@ -148,6 +147,9 @@ def create_lookup_table(width, height, depth):
 
     :return: lookup_table
     '''
+    width = settings.WIDTH
+    height = settings.HEIGHT
+    depth = settings.DEPTH
 
     lookup_table = []
 
@@ -180,7 +182,7 @@ def create_lookup_table(width, height, depth):
 
     return lookup_table
 
-def create_voxel_model(lookup_table, width, height, depth):
+def create_voxel_model(lookup_table):
     '''
     Creates the voxel model
 
@@ -192,48 +194,73 @@ def create_voxel_model(lookup_table, width, height, depth):
     :return: voxel_volume, voxel_colors_per_cam
     '''
 
-    foreground_mask = []
-    color_images = []
-     # Create a voxel volume
-    voxel_volume = np.ones((width, depth, height), dtype=bool)
-    # Create a list to store the voxel coordinates and the corresponding colors
-    voxel_colors_per_cam = np.zeros((width, depth, height, settings.NUM_CAMERAS, 3), dtype=int)
-    # Iterate over the cameras to retrieve the foreground masks and color images for the current frame
-    for n_camera in range(1, settings.NUM_CAMERAS+1):
-        video_path = f'data/cam{n_camera}/foreground_mask.avi'
-        cap = cv.VideoCapture(video_path)
-        frame_number = np.min([int(cap.get(cv.CAP_PROP_FRAME_COUNT)), (settings.FRAME_NUMBER - 1)])
-        cap.set(cv.CAP_PROP_POS_FRAMES, frame_number)
-        _, frame = cap.read()
-        frame_cvt = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
-        # foreground_mask.append(frame_cvt) # cv.imread(f'data/cam{n_camera}/foreground_mask.jpg', 0)
-        foreground_mask.append(cv.imread(f'manual_masks/manual_mask_{n_camera}.jpg', 0)) # NOTE: Just for testing purposes
+    if os.path.exists(f'voxel_models.pkl'):
+        with open(f'voxel_models.pkl', 'rb') as f:
+            return pickle.load(f)
 
-        video_path_color = f'data/cam{n_camera}/video.avi'
-        cap_color = cv.VideoCapture(video_path_color)
-        cap_color.set(cv.CAP_PROP_POS_FRAMES, frame_number)
-        _, frame_color = cap_color.read()
-        color_images.append(frame_color)
+    width = settings.WIDTH
+    height = settings.HEIGHT
+    depth = settings.DEPTH
 
-        cap.release()
-        cap_color.release()
+    total_voxel_volume = []
+    total_voxel_colors_per_cam = []
 
-        for x in tqdm(range(width), desc=f"Voxel Projection - Camera {n_camera}"):
-            for y in range(height):
-                for z in range(depth):
-                    if not voxel_volume[x, z, y]:
-                        continue
-                    voxel_index = z + y * depth + x * (depth * height)
+    number_of_frames = get_lowest_frame_number()
+    frame_step_size = int((number_of_frames - number_of_frames%settings.NUMBER_OF_FRAMES_TO_ANALYSE)/settings.NUMBER_OF_FRAMES_TO_ANALYSE)
+    starting_frame = frame_step_size * settings.STARTING_FRAME_NUMBER
+    for i, frame_number in tqdm(enumerate(range(starting_frame, number_of_frames, frame_step_size)), desc="Frame Iteration"):
+        if i == settings.MAX_NUMBER_OF_FRAMES:
+            break
+        print("Frame number voxel model: ", frame_number)
+        foreground_mask = []
+        color_images = []
+        # Create a voxel volume
+        voxel_volume = np.ones((width, depth, height), dtype=bool)
+        # Create a list to store the voxel coordinates and the corresponding colors
+        voxel_colors_per_cam = np.zeros((width, depth, height, settings.NUM_CAMERAS, 3), dtype=int)
+        # Iterate over the cameras to retrieve the foreground masks and color images for the current frame
+        for n_camera in range(1, settings.NUM_CAMERAS+1):
+            video_path = f'data/cam{n_camera}/foreground_mask.avi'
+            cap = cv.VideoCapture(video_path)
+            cap.set(cv.CAP_PROP_POS_FRAMES, frame_number)
+            _, frame = cap.read()
+            frame_cvt = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
+            foreground_mask.append(frame_cvt) # cv.imread(f'data/cam{n_camera}/foreground_mask.jpg', 0)
+            # foreground_mask.append(cv.imread(f'manual_masks/manual_mask_{n_camera}.jpg', 0)) # NOTE: Just for testing purposes
 
-                    projection_x = int(lookup_table[n_camera-1][voxel_index][0][0])
-                    projection_y = int(lookup_table[n_camera-1][voxel_index][0][1])
-                    if projection_x < 0 or projection_y < 0 or projection_x >= foreground_mask[n_camera-1].shape[1] or projection_y >= foreground_mask[n_camera-1].shape[0] or not foreground_mask[n_camera-1][projection_y, projection_x]:
-                        voxel_volume[x, z, y] = False
-                        voxel_colors_per_cam[x, z, y, :] = [0, 0, 0]
-                    else:
-                        voxel_colors_per_cam[x, z, y, n_camera-1] = color_images[n_camera-1][projection_y, projection_x, :]
+            video_path_color = f'data/cam{n_camera}/video.avi'
+            cap_color = cv.VideoCapture(video_path_color)
+            cap_color.set(cv.CAP_PROP_POS_FRAMES, frame_number)
+            _, frame_color = cap_color.read()
+            color_images.append(frame_color)
+
+            cap.release()
+            cap_color.release()
+
+            for x in tqdm(range(width), desc=f"Voxel Projection - Camera {n_camera}/{settings.NUM_CAMERAS}", leave=False):
+                for y in range(height):
+                    for z in range(depth):
+                        if not voxel_volume[x, z, y]:
+                            continue
+                        voxel_index = z + y * depth + x * (depth * height)
+
+                        projection_x = -1 if np.isinf(lookup_table[n_camera-1][voxel_index][0][0]) else int(lookup_table[n_camera-1][voxel_index][0][0])
+                        projection_y = -1 if np.isinf(lookup_table[n_camera-1][voxel_index][0][1]) else int(lookup_table[n_camera-1][voxel_index][0][1])
+                        if projection_x < 0 or projection_y < 0 or projection_x >= foreground_mask[n_camera-1].shape[1] or projection_y >= foreground_mask[n_camera-1].shape[0] or not foreground_mask[n_camera-1][projection_y, projection_x]:
+                            voxel_volume[x, z, y] = False
+                            voxel_colors_per_cam[x, z, y, :] = [0, 0, 0]
+                        else:
+                            voxel_colors_per_cam[x, z, y, n_camera-1] = color_images[n_camera-1][projection_y, projection_x, :]
+        
+        total_voxel_volume.append(voxel_volume)
+        total_voxel_colors_per_cam.append(voxel_colors_per_cam)
     
-    return voxel_volume, voxel_colors_per_cam
+    # TODO: Save to pickle file
+    with open(f'voxel_models.pkl', 'wb') as f:
+        data_to_save = (total_voxel_volume, total_voxel_colors_per_cam)
+        pickle.dump(data_to_save, f, protocol=4)
+    
+    return total_voxel_volume, total_voxel_colors_per_cam
 
 def generate_mesh(voxels, frame_number):
     '''
@@ -545,7 +572,7 @@ def read_camera_parameters(camera_number):
 
     return camera_matrix, dist_coeffs, rvecs, tvecs
 
-def assign_colors(voxel_volume, voxel_colors_per_cam, width, height, depth): # NOTE: This function follows the axis of the 3D simulation world (opengl)
+def assign_colors(total_voxel_volume, total_voxel_colors_per_cam): # NOTE: This function follows the axis of the 3D simulation world (opengl)
     """
     Determines which voxels are visible from the camera position and assigns colors to the visible voxels.
 
@@ -558,80 +585,120 @@ def assign_colors(voxel_volume, voxel_colors_per_cam, width, height, depth): # N
         with open(f'assign_colors.pkl', 'rb') as f:
             return pickle.load(f)
     
-    # Get the voxel positions
-    voxel_positions = np.argwhere(voxel_volume)
-    voxel_positions[1], voxel_positions[2] = voxel_positions[2], voxel_positions[1]
-    # Create a copy of the voxels array to store the colors
-    voxels_color = np.empty((voxel_volume.shape[0], voxel_volume.shape[2], voxel_volume.shape[1]), dtype=object)
-    voxel_colors_per_cam[1], voxel_colors_per_cam[2] = voxel_colors_per_cam[2], voxel_colors_per_cam[1]
-    # Get the camera positions
-    camera_position, _ = get_cam_positions()
-    print("Camera positions: ", camera_position)
+    width = settings.WIDTH
+    height = settings.HEIGHT
+    depth = settings.DEPTH
 
-    visible_voxels_per_cam = np.zeros((settings.NUM_CAMERAS, width, depth, height), dtype=bool)
-    visible_voxels_colors_per_cam = np.zeros((settings.NUM_CAMERAS, width, depth, height, 3), dtype=int)
+    total_voxels_color = []
+    total_visible_voxels_per_cam = []
+    total_visible_voxels_colors_per_cam = []
 
-    for n_camera in tqdm(range(1, settings.NUM_CAMERAS+1), desc="Color - Ray Tracing"):
-        voxel_grid = voxel_volume.copy()
-        voxel_grid[1], voxel_grid[2] = voxel_grid[2], voxel_grid[1]
-        voxel_colored = voxel_volume.copy()
-        voxel_colored[1], voxel_colored[2] = voxel_colored[2], voxel_colored[1]
-        camera_position[n_camera-1] = [camera_position[n_camera-1][0] + width/2, camera_position[n_camera-1][2] + depth/2, camera_position[n_camera-1][1]]
-        for target_voxel in tqdm(voxel_positions, desc=f"Color - Ray Tracing - Camera {n_camera}", leave=False):
-            if voxel_colored[target_voxel[0], target_voxel[1], target_voxel[2]]:
-                # Calculate the direction vector from the camera to the target voxel
-                direction = target_voxel - camera_position[n_camera-1]
-                distance_to_target = np.linalg.norm(direction)
-                direction /= distance_to_target
+    number_of_frames = get_lowest_frame_number()
+    frame_step_size = int((number_of_frames - number_of_frames%settings.NUMBER_OF_FRAMES_TO_ANALYSE)/settings.NUMBER_OF_FRAMES_TO_ANALYSE)
+    starting_frame = frame_step_size * settings.STARTING_FRAME_NUMBER
+    for idx, frame_number in enumerate(range(starting_frame, number_of_frames, frame_step_size)):
+        if idx == settings.MAX_NUMBER_OF_FRAMES:
+            break
+        # Get the voxel positions
+        voxel_positions = np.argwhere(total_voxel_volume[idx])
+        voxel_positions[1], voxel_positions[2] = voxel_positions[2], voxel_positions[1]
+        # Create a copy of the voxels array to store the colors
+        voxels_color = np.empty((total_voxel_volume[idx].shape[0], total_voxel_volume[idx].shape[1], total_voxel_volume[idx].shape[2]), dtype=object)
+        total_voxel_colors_per_cam[idx][1], total_voxel_colors_per_cam[idx][2] = total_voxel_colors_per_cam[idx][2], total_voxel_colors_per_cam[idx][1]
+        # Get the camera positions
+        camera_position, _ = get_cam_positions()
 
-                # Step size for the ray
-                step_size = 1.0
+        visible_voxels_per_cam = np.zeros((settings.NUM_CAMERAS, width, depth, height), dtype=bool)
+        visible_voxels_colors_per_cam = np.zeros((settings.NUM_CAMERAS, width, depth, height, 3), dtype=int)
 
-                # Flag: True if the current voxel is the first voxel along the ray
-                is_first = True
-                # Flag: True if the ray is outside the voxel grid
-                outside = True
+        for n_camera in tqdm(range(1, settings.NUM_CAMERAS+1), desc="Color - Ray Tracing"):
+            voxel_grid = total_voxel_volume[idx].copy()
+            voxel_grid[1], voxel_grid[2] = voxel_grid[2], voxel_grid[1]
+            voxel_colored = total_voxel_volume[idx].copy()
+            voxel_colored[1], voxel_colored[2] = voxel_colored[2], voxel_colored[1]
+            camera_position[n_camera-1] = [camera_position[n_camera-1][0] + width/2, camera_position[n_camera-1][2] + depth/2, camera_position[n_camera-1][1]]
+            for target_voxel in tqdm(voxel_positions, desc=f"Color - Ray Tracing - Camera {n_camera}", leave=False):
+                if voxel_colored[target_voxel[0], target_voxel[1], target_voxel[2]]:
+                    # Calculate the direction vector from the camera to the target voxel
+                    direction = target_voxel - camera_position[n_camera-1]
+                    distance_to_target = np.linalg.norm(direction)
+                    direction /= distance_to_target
 
-                step = 1
-                while True:
-                    # Calculate the point along the ray at the current step
-                    point_along_ray = camera_position[n_camera-1] + direction * step * step_size
-                    step += 1
-                    # Round the point to the nearest voxel
-                    x, y, z = np.round(point_along_ray).astype(int)
-                    # print("Point along ray: ", point_along_ray)
-                    
-                    # Check if we're outside the bounds of the voxel grid
-                    if x < 0 or x >= voxel_grid.shape[0] or y < 0 or y >= voxel_grid.shape[1] or z < 0 or z >= voxel_grid.shape[2]:
-                        # Break the loop if we're outside the voxel grid
-                        if outside == False:
-                            break
-                        continue
-                    
-                    outside = False
-                    
-                    # Check if the current voxel is on
-                    if voxel_colored[x, y, z] or (voxel_grid[x, y, z] and is_first):
-                        # If the current voxel is the first visible voxel along the ray, keeps it in the visible ones
-                        if is_first:
-                            voxel_colored[x, y, z] = True
-                            if not voxels_color[x, y, z]:
-                                voxels_color[x, y, z] = []
-                            voxels_color[x, y, z].append(voxel_colors_per_cam[target_voxel[0], target_voxel[1], target_voxel[2], n_camera-1]/255)
-                            visible_voxels_per_cam[n_camera-1, x, y, z] = True
-                            visible_voxels_colors_per_cam[n_camera-1, x, y, z] = voxel_colors_per_cam[target_voxel[0], target_voxel[1], target_voxel[2], n_camera-1]/255
-                            is_first = False
-                        else:
-                            # If the current voxel is not the first visible voxel along the ray, then it is occluded
-                            voxel_colored[x, y, z] = False
+                    # Step size for the ray
+                    step_size = 1.0
 
-    total_voxels_color = np.array([[[np.mean(lst, axis=0) if lst is not None else [0, 0, 0] for lst in row] for row in subarray] for subarray in voxels_color])
+                    # Flag: True if the current voxel is the first voxel along the ray
+                    is_first = True
+                    # Flag: True if the ray is outside the voxel grid
+                    outside = True
+
+                    step = 1
+                    while True:
+                        # Calculate the point along the ray at the current step
+                        point_along_ray = camera_position[n_camera-1] + direction * step * step_size
+                        step += 1
+                        # Round the point to the nearest voxel
+                        x, y, z = np.round(point_along_ray).astype(int)
+                        # print("Point along ray: ", point_along_ray)
+                        
+                        # Check if we're outside the bounds of the voxel grid
+                        if x < 0 or x >= voxel_grid.shape[0] or y < 0 or y >= voxel_grid.shape[1] or z < 0 or z >= voxel_grid.shape[2]:
+                            # Break the loop if we're outside the voxel grid
+                            if outside == False:
+                                break
+                            continue
+                        
+                        outside = False
+                        
+                        # Check if the current voxel is on
+                        if voxel_colored[x, y, z] or (voxel_grid[x, y, z] and is_first):
+                            # If the current voxel is the first visible voxel along the ray, keeps it in the visible ones
+                            if is_first:
+                                voxel_colored[x, y, z] = True
+                                if not voxels_color[x, y, z]:
+                                    voxels_color[x, y, z] = []
+                                voxels_color[x, y, z].append(total_voxel_colors_per_cam[idx][target_voxel[0], target_voxel[1], target_voxel[2], n_camera-1]/255)
+                                visible_voxels_per_cam[n_camera-1, x, y, z] = True
+                                visible_voxels_colors_per_cam[n_camera-1, x, y, z] = total_voxel_colors_per_cam[idx][target_voxel[0], target_voxel[1], target_voxel[2], n_camera-1]/255
+                                is_first = False
+                            else:
+                                # If the current voxel is not the first visible voxel along the ray, then it is occluded
+                                voxel_colored[x, y, z] = False
+
+        total_voxels_color.append(np.array([[[np.mean(lst, axis=0) if lst is not None else [0, 0, 0] for lst in row] for row in subarray] for subarray in voxels_color]))
+        total_visible_voxels_per_cam.append(visible_voxels_per_cam)
+        total_visible_voxels_colors_per_cam.append(visible_voxels_colors_per_cam)
     
     with open(f'assign_colors.pkl', 'wb') as f:
-        pickle.dump((total_voxels_color), f, protocol=4)
+        data_to_save = (total_voxels_color, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam)
+        pickle.dump(data_to_save, f, protocol=4)
 
-    return total_voxels_color, visible_voxels_per_cam, visible_voxels_colors_per_cam
+    return total_voxels_color, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam
 
+def create_all_models():
+    lookup_table = create_lookup_table()
+
+    print("\n\nLookup table created")
+
+    total_voxel_volume, total_voxel_colors_per_cam = create_voxel_model(lookup_table)
+
+    print("\n\nVoxel model created")
+    
+    # total_voxels_color, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam = assign_colors(total_voxel_volume, total_voxel_colors_per_cam)
+
+    return total_voxel_volume# , total_voxels_color, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam
+
+def get_lowest_frame_number():
+    lowest_frame_number = float('inf')
+    for n_camera in range(1, settings.NUM_CAMERAS+1):
+        video_path = f'data/cam{n_camera}/foreground_mask.avi'
+        cap = cv.VideoCapture(video_path)
+        frame_number = int(cap.get(cv.CAP_PROP_FRAME_COUNT))
+        if frame_number < lowest_frame_number:
+            lowest_frame_number = frame_number
+        cap.release()
+
+    return lowest_frame_number
 # Offline preparatory part
 
 # Get camera intrinsics and extrinsics, create the background model and the segmented video
@@ -649,4 +716,5 @@ for camera_number in range(1, settings.NUM_CAMERAS+1):
     background_model_path = f'data/cam{camera_number}/background_model.jpg'
     optimal_thresholds = manual_segmentation_comparison(camera_number, first_video_frame, background_model_path, manual_mask_path, steps=[50, 10, 5, 1])
     create_segmented_video(video_path, background_model_path, optimal_thresholds)
+create_all_models()
     

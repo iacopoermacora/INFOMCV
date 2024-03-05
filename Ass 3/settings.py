@@ -1,4 +1,5 @@
 import cv2 as cv
+import json
 
 def read_xml_chekerboard(file_path):
     fs = cv.FileStorage(file_path, cv.FILE_STORAGE_READ)
@@ -12,7 +13,17 @@ def read_xml_chekerboard(file_path):
     fs.release()
     return CheckerBoardSquareSize, CheckerBoardWidth, CheckerBoardHeight
 
+def read_world_dimensions_from_config(filename):
+    with open(filename, 'r') as file:
+        config = json.load(file)
+        world_width = config.get('world_width')
+        world_height = config.get('world_height')
+        world_depth = config.get('world_depth')
+        return world_width, world_height, world_depth
+
 # Parameters Settings
+    
+WIDTH, HEIGHT, DEPTH = read_world_dimensions_from_config('config.json')
 
 # Set to True to use the webcam for testing, or False to use the test static image (DEFAULT: False)
 USE_WEBCAM = False
@@ -32,12 +43,17 @@ INTERVAL = 2
 NUM_CAMERAS = 4
 # Time to show the image with auto-detected corners in milliseconds
 IMAGE_VIEW_TIME = 100
-# Frame of the video to display in the 3D visualiser
-FRAME_NUMBER = 0
 # Decide whether to create the mesh or not
 CREATE_MESH = False
 # Read the size of the checkerboard
 CHECKERBOARD_SQUARE_SIZE, CHECKERBOARD_WIDTH, CHECKERBOARD_HEIGHT = read_xml_chekerboard("data/checkerboard.xml")
+
+# Number of frames to analyse per second
+NUMBER_OF_FRAMES_TO_ANALYSE = 20 # TODO: Set to 100
+# Frame of the video to display in the 3D visualiser
+STARTING_FRAME_NUMBER = 0 # NOTE: Starting frame number out of the number of frames to analyse JUST FOR TEST, OTHERWISE SET TO 0
+# Maximum number of frames to analyse
+MAX_NUMBER_OF_FRAMES = 2 # NOTE: Maximum number of frames to analyse JUST FOR TEST, OTHERWISE SET TO INFINITY
 
 # Number of clusters
 NUMBER_OF_CLUSTERS = 4
