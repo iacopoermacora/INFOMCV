@@ -7,11 +7,12 @@ import settings as settings
 import cv2 as cv
 import assignment as ass
 from scipy.spatial.distance import cdist
+from scipy.optimize import linear_sum_assignment
 
-'''def color_model():
-    
+def color_model(visible_voxels_colors_per_cam, visible_voxels_per_cam):
+    '''
     Creates the color models for all the subjects for all the cameras
-    
+    '''
 
     # NOTE: visible_voxels_per_cam, visible_voxels_colors_per_cam
     # NOTE: change the code to other names and shape it differently
@@ -57,7 +58,7 @@ from scipy.spatial.distance import cdist
 
         cam_color_models[n_camera] = color_models
 
-    return cam_color_models # color_models is a list of n_camera lists of n_people color models'''
+    return cam_color_models # color_models is a list of n_camera lists of n_people color models
 
 '''def match_center(centers, centers_no_outliers):
     
@@ -75,34 +76,33 @@ from scipy.spatial.distance import cdist
 
     return centers_no_outliers_matched'''
 
-def remove_outliers_and_ghosts(labels_def, centers, voxels, voxels_no_height):
+def remove_outliers_and_ghosts(labels_def, centers, voxels):
     '''
     Remove the outliers and the ghost voxels to improve the clustering
     '''
     distance = []
-    for i in range(len(voxels_no_height)):
+    for i in range(len(voxels)):
         center = centers[labels_def[i]]
-        distance.append(np.linalg.norm(voxels_no_height[i] - center))
+        distance.append(np.linalg.norm(voxels[i] - center))
 
     # Calculate the 0.05 percentile of the distances
-    threshold = np.percentile(distance, 90)
+    threshold = np.percentile(distance, 95)
 
     no_outliers_mask = distance < threshold
-    voxels_no_outliers = np.float32(voxels)[no_outliers_mask]
-    voxels_no_outliers_no_height = voxels_no_height[no_outliers_mask]
+    voxels_no_outliers = voxels[no_outliers_mask]
     # labels_def_no_outliers = labels_def[no_outliers_mask]
 
     # Remove the ghost voxels
     '''    for i in range(len(voxels_no_outliers)):
-        for j in range(i+1, len(voxels_no_outliers)):
-            if labels_def_no_outliers[i] == labels_def_no_outliers[j]:
-                if np.linalg.norm(voxels_no_outliers[i] - voxels_no_outliers[j]) < 10:
-                    labels_def_no_outliers[j] = -1'''
+              for j in range(i+1, len(voxels_no_outliers)):
+                  if labels_def_no_outliers[i] == labels_def_no_outliers[j]:
+                    if np.linalg.norm(voxels_no_outliers[i] - voxels_no_outliers[j]) < 10:
+                      labels_def_no_outliers[j] = -1'''
 
     # Cluster voxels in 3d space based on x/y information
     criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 10, 0.1)
 
-    _, labels_def_no_outliers, centers_no_outliers = cv.kmeans(voxels_no_outliers_no_height, 4, None, criteria, 20, cv.KMEANS_RANDOM_CENTERS)
+    _, labels_def_no_outliers, centers_no_outliers = cv.kmeans(voxels_no_outliers, 4, None, criteria, 20, cv.KMEANS_RANDOM_CENTERS)
 
     # centers_no_outliers_matched = match_center(centers, centers_no_outliers)
 
@@ -114,13 +114,61 @@ def cluster_voxels(voxels):
     '''
     criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 10, 0.1) # number of iterations, epsilon value (either when epsilon or number of iteration is reached)
     
-    voxels_no_height = np.float32(voxels)[:, [0, 2]] # Keep first and third column
+    voxels = np.float32(voxels)[:, [0, 2]] # Remove first and third column
 
-    _, labels_def, centers = cv.kmeans(voxels_no_height, 4, None, criteria, 20, cv.KMEANS_RANDOM_CENTERS) # 4 is number of clusters, 20 is number of attempts, centres randomly chosen
+    _, labels_def, centers = cv.kmeans(voxels, 4, None, criteria, 20, cv.KMEANS_RANDOM_CENTERS) # 4 is number of clusters, 20 is number of attempts, centres randomly chosen
 
     # TODO: IMPLEMENT REMOVAL OF OUTLIERS AND GHOSTS HERE
-    labels_def_no_outliers, centers_no_outliers, voxels_no_outliers = remove_outliers_and_ghosts(labels_def, centers, voxels, voxels_no_height)
+    labels_def_no_outliers, centers_no_outliers, voxels_no_outliers = remove_outliers_and_ghosts(labels_def, centers, voxels)
     # TODO: change the code a bit (variables, order and stuff)
 
     return labels_def_no_outliers, centers_no_outliers, voxels_no_outliers
 
+def final_labeling(cam_color_models, visible_voxels_colors_per_cam, visible_voxels_per_cam, roi):
+    
+
+
+def online_phase(cam_color_models, voxels, visible_voxels_colors_per_cam, visible_voxels_per_cam):
+    """
+    online is a function dedicated to develop the online phase of assignment 3. It is composed of a
+    K-means clustering, a comparison of the offline color models to the online GMMs probabilities, a
+    label matching to obtain the final labelling of each person and a 2D path tracking on the floor.
+    """
+    
+    cam_color_models_offline = color_model(visible_voxels_colors_per_cam, visible_voxels_per_cam)
+    cam_color_models_online = color_model(visible_voxels_colors_per_cam, visible_voxels_per_cam)
+    
+    predictions = []
+    log_likelihood_offline = []
+    log_likelihood_online = []
+
+    for n_camera in range(1, settings.NUM_CAMERAS+1):
+        cost_matrix = np.zeros((len(voxels), len(cam_color_models_offline[n_camera-1])))
+
+        for label in range(len(cam_color_models_offline[n_camera])):
+            # Get the GMM model for the person
+            model_offline = cam_color_models_offline[n_camera-1][label]
+            model_online = cam_color_models_online[n_camera-1][label]
+            
+            # Get the probability of the person being in the scene  
+            log_likelihood_offline.append(model_offline.score_samples(roi)) # not sure about roi
+            log_likelihood_online.append(model_online.score_samples(roi)) # not sure about roi
+
+    # Calculate the cost matrix
+    cost_matrix[:, label] = log_likelihood_offline - log_likelihood_online
+
+    # Assign the labels to the people
+    row_ind, col_ind = linear_sum_assignment(cost_matrix)
+    predictions.append(col_ind) # Store the optimal assignment for the current camera
+
+    # Get the final labeling
+    final_labeling(cam_color_models_offline, visible_voxels_colors_per_cam, visible_voxels_per_cam, roi)
+
+    return predictions
+
+
+        
+            
+        
+            
+           
