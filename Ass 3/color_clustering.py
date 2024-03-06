@@ -5,7 +5,6 @@ from tqdm import tqdm
 import camera_calibration as cc
 import settings as settings
 import cv2 as cv
-import assignment as ass
 from scipy.spatial.distance import cdist
 from scipy.optimize import linear_sum_assignment
 
@@ -131,7 +130,7 @@ def final_labeling(cam_color_models, visible_voxels_colors_per_cam, visible_voxe
     return
 
 
-def online_phase(cam_color_models, voxels, visible_voxels_colors_per_cam, visible_voxels_per_cam):
+'''def online_phase(cam_color_models, voxels, visible_voxels_colors_per_cam, visible_voxels_per_cam):
     """
     online is a function dedicated to develop the online phase of assignment 3. It is composed of a
     K-means clustering, a comparison of the offline color models to the online GMMs probabilities, a
@@ -173,7 +172,7 @@ def online_phase(cam_color_models, voxels, visible_voxels_colors_per_cam, visibl
     # Get the final labeling
     final_labeling(cam_color_models_offline, visible_voxels_colors_per_cam, visible_voxels_per_cam, roi) # to check and implement
 
-    return predictions
+    return predictions'''
 
 
         

@@ -6,7 +6,7 @@ from engine.buffer.texture import *
 from engine.buffer.hdrbuffer import HDRBuffer
 from engine.buffer.blurbuffer import BlurBuffer
 from engine.effect.bloom import Bloom
-from assignment import set_voxel_positions, generate_grid, get_cam_positions, get_cam_rotation_matrices
+from assignment import set_voxel_positions, generate_grid, get_cam_positions, get_cam_rotation_matrices, increment_frame_count
 from engine.camera import Camera
 from engine.config import config
 
@@ -184,6 +184,7 @@ def key_callback(window, key, scancode, action, mods):
     if key == glfw.KEY_G and action == glfw.PRESS:
         global cube
         positions, colors = set_voxel_positions(config['world_width'], config['world_height'], config['world_width'])
+        increment_frame_count()
         cube.set_multiple_positions(positions, colors)
 
 def mouse_move(win, pos_x, pos_y):

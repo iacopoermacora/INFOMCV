@@ -15,6 +15,7 @@ from skimage import measure
 import color_clustering as col_cl
 
 block_size = 1.0
+frame_cnt = -1
 
 def generate_grid(width, depth):
     # Generates the floor grid locations
@@ -36,13 +37,15 @@ def set_voxel_positions(width, height, depth):
 
     :return: data, colors
     '''
+    global total_voxels_color
+    global total_visible_voxels_per_cam
+    global total_visible_voxels_colors_per_cam
+    global total_voxel_volume_cleaned
 
     data, colors = [], []
     # Create a lookup table to store the voxel coordinates and the corresponding pixel coordinates for each camera
 
-    idx = 1
-
-    total_voxels_color, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam, total_voxel_volume_cleaned = create_all_models() # TODO:  total_voxels_color, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam 
+    idx = frame_cnt
 
     # Create a counter to store the number of visible voxels in all cameras
     visible_all_cameras = 0
@@ -134,6 +137,15 @@ def get_cam_rotation_matrices():
 
 # Our extra functions
 
+def increment_frame_count():
+    '''
+    Increments the frame count
+    '''
+    global frame_cnt
+    frame_cnt += 1
+
+    return frame_cnt <= min(settings.MAX_NUMBER_OF_FRAMES, settings.NUMBER_OF_FRAMES_TO_ANALYSE)
+
 def create_lookup_table():
     '''
     Creates a look-up table to store the voxel coordinates and the corresponding pixel coordinates for each camera
@@ -157,16 +169,16 @@ def create_lookup_table():
     
     voxel_points = []
     
-    print("STEP 1 - Creating lookup table")
+    print("\n\nSTEP 1 - Creating lookup table")
     # Iterate over the voxel volume to create the look-up table
-    for x in tqdm(range(width), desc="Step 2.1 - Lookup Table Creation"):
+    for x in tqdm(range(width), desc="Step 1.1 - Lookup Table Creation"):
         for y in range(height):
             for z in range(depth):
                 # Calculate the voxel point for the opencv projectPoints function
                 voxel_points.append([(x*block_size - width/2) * settings.GRID_TILE_SIZE, (z*block_size - depth/2) * settings.GRID_TILE_SIZE, -y*block_size * settings.GRID_TILE_SIZE])
 
     # Iterate over the cameras
-    for c in tqdm(range(1, settings.NUM_CAMERAS+1), desc="Step 2.2 - Lookup Table - Projecting Points"):
+    for c in tqdm(range(1, settings.NUM_CAMERAS+1), desc="Step 1.2 - Lookup Table - Projecting Points"):
         # Get the camera parameters
         camera_matrix, distortion_coeffs, rotation_vector, translation_vector = read_camera_parameters(c)
         # Project voxel point onto image plane of camera c
@@ -200,7 +212,7 @@ def create_voxel_model(lookup_table):
     height = settings.HEIGHT
     depth = settings.DEPTH
 
-    print("STEP 2 - Creating voxel model")
+    print("\n\nSTEP 2 - Creating voxel model")
 
     total_voxel_volume = []
     total_voxel_colors_per_cam = []
@@ -211,7 +223,6 @@ def create_voxel_model(lookup_table):
     for i, frame_number in tqdm(enumerate(range(starting_frame, number_of_frames, frame_step_size)), desc="Creating Voxel Model - Frame Iteration"):
         if i == settings.MAX_NUMBER_OF_FRAMES:
             break
-        print("Frame number voxel model: ", frame_number)
         foreground_mask = []
         color_images = []
         # Create a voxel volume
@@ -589,7 +600,7 @@ def assign_colors(total_voxel_volume, total_voxel_colors_per_cam): # NOTE: This 
     height = settings.HEIGHT
     depth = settings.DEPTH
 
-    print("STEP 4 - Assigning colors")
+    print("\n\nSTEP 4 - Assigning colors")
 
     total_voxels_color = []
     total_visible_voxels_per_cam = []
@@ -680,48 +691,63 @@ def assign_colors(total_voxel_volume, total_voxel_colors_per_cam): # NOTE: This 
 def create_all_models():
     lookup_table = create_lookup_table()
 
-    print("\n\nLookup table created")
+    print("\nLookup table created")
 
     total_voxel_volume, total_voxel_colors_per_cam = create_voxel_model(lookup_table)
 
-    print("\n\nVoxel model created")
+    print("\nVoxel model created")
 
     total_labels_def = [] # NOTE: Move this inside a function that checks if we already have that information
     total_centers = []
     total_voxels = []
     total_voxel_volume_cleaned = []
 
-    for idx in tqdm(range(len(total_voxel_volume)), desc="Step 3 - New Voxels Projection - All Frames"):
-        voxels = []
-        # Create a counter to store the number of visible voxels in all cameras
-        visible_all_cameras = 0
-        # Iterate over voxels to store the visible ones
-        for x in tqdm(range(settings.WIDTH), desc="Voxel Projection - Visible Voxels", leave=False):
-            for y in range(settings.HEIGHT):
-                for z in range(settings.DEPTH):
-                    if total_voxel_volume[idx][x, z, y]:
-                        visible_all_cameras += 1
-                        # Store the voxel coordinates to output
-                        voxel_to_display = [x*block_size - settings.WIDTH/2, y*block_size, z*block_size - settings.DEPTH/2]
-                        # data.append(voxel_to_display)
-                        voxels.append(voxel_to_display) # NOTE: This is for the clustering
-                        
-                        # colors.append(total_voxels_color[idx][x, z, y])
-        
-        labels_def, centers, voxels = col_cl.cluster_voxels(voxels)
+    print("\n\nSTEP 3 - New Voxels Projection")
+    if os.path.exists(f'post_clustering.pkl'):
+        with open(f'post_clustering.pkl', 'rb') as f:
+            total_labels_def, total_centers, total_voxels, total_voxel_volume_cleaned = pickle.load(f)
+    else:
+        for idx in tqdm(range(len(total_voxel_volume)), desc="New Voxels Projection - Frame Iteration"):
+            voxels = []
+            # Create a counter to store the number of visible voxels in all cameras
+            visible_all_cameras = 0
+            # Iterate over voxels to store the visible ones
+            for x in tqdm(range(settings.WIDTH), desc="Voxel Projection - Visible Voxels", leave=False):
+                for y in range(settings.HEIGHT):
+                    for z in range(settings.DEPTH):
+                        if total_voxel_volume[idx][x, z, y]:
+                            visible_all_cameras += 1
+                            # Store the voxel coordinates to output
+                            voxel_to_display = [x*block_size - settings.WIDTH/2, y*block_size, z*block_size - settings.DEPTH/2]
+                            # data.append(voxel_to_display)
+                            voxels.append(voxel_to_display) # NOTE: This is for the clustering
+                            
+                            # colors.append(total_voxels_color[idx][x, z, y])
+            
+            labels_def, centers, voxels = col_cl.cluster_voxels(voxels)
 
-        voxel_volume_cleaned = np.zeros((settings.WIDTH, settings.DEPTH, settings.HEIGHT), dtype=bool)
-        for voxel in voxels:
-            voxel_volume_cleaned[int((voxel[0]+settings.WIDTH/2)/block_size)][int((voxel[2]+settings.DEPTH/2)/block_size)][int(voxel[1]/block_size)] = True
-        
-        # voxels = [[float(row[0]), float(row[1]), float(row[2])] for row in voxels]
+            voxels = [[float(row[0]), float(row[1]), float(row[2])] for row in voxels]
 
-        total_labels_def.append(labels_def)
-        total_centers.append(centers)
-        # total_voxels.append(voxels)
-        total_voxel_volume_cleaned.append(voxel_volume_cleaned)
+            voxel_volume_cleaned = np.zeros((settings.WIDTH, settings.DEPTH, settings.HEIGHT), dtype=bool)
+            for voxel in voxels:
+                voxel_volume_cleaned[int((voxel[0]+settings.WIDTH/2)/block_size)][int((voxel[2]+settings.DEPTH/2)/block_size)][int(voxel[1]/block_size)] = True
+
+            total_labels_def.append(labels_def)
+            total_centers.append(centers)
+            total_voxels.append(voxels)
+            total_voxel_volume_cleaned.append(voxel_volume_cleaned)
+    
+        with open(f'post_clustering.pkl', 'wb') as f:
+            data_to_save = (total_labels_def, total_centers, total_voxels, total_voxel_volume_cleaned)
+            pickle.dump(data_to_save, f, protocol=4)
+    
+    print("\nNew Voxels projected")
     
     total_voxels_color, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam = assign_colors(total_voxel_volume_cleaned, total_voxel_colors_per_cam)
+
+    print("\nColors assigned")
+
+    print("\n\nAll Frames are ready to be displayed: press 'g' to visualise the next frame")
 
     return total_voxels_color, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam, total_voxel_volume_cleaned
 
@@ -753,5 +779,5 @@ for camera_number in range(1, settings.NUM_CAMERAS+1):
     background_model_path = f'data/cam{camera_number}/background_model.jpg'
     optimal_thresholds = manual_segmentation_comparison(camera_number, first_video_frame, background_model_path, manual_mask_path, steps=[50, 10, 5, 1])
     create_segmented_video(video_path, background_model_path, optimal_thresholds)
-create_all_models()
+total_voxels_color, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam, total_voxel_volume_cleaned = create_all_models()
     

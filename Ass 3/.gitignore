@@ -135,5 +135,4 @@ dmypy.json
 data/
 __pycache__/
 *.pkl
-config.json
 *.png
