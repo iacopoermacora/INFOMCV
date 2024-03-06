@@ -41,6 +41,7 @@ def set_voxel_positions(width, height, depth):
     global total_visible_voxels_per_cam
     global total_visible_voxels_colors_per_cam
     global total_voxel_volume_cleaned
+    global total_labels_def
 
     data, colors = [], []
     # Create a lookup table to store the voxel coordinates and the corresponding pixel coordinates for each camera
@@ -58,23 +59,17 @@ def set_voxel_positions(width, height, depth):
                         voxel_to_display = [x*block_size - settings.WIDTH/2, y*block_size, z*block_size - settings.DEPTH/2]
                         # data.append(voxel_to_display)
                         data.append(voxel_to_display) # NOTE: This is for the clustering
-                        colors.append(total_voxels_color[idx][x, z, y])
+                        # colors.append(total_voxels_color[idx][x, z, y])
 
-    '''print(f"Labels: {labels_def}")
-
-    for label, voxel in zip(labels_def, voxels):
+    for label in total_labels_def[idx]:
         if label == 0:
             colors.append([0, 0, 225])
-            data.append(voxel)
         if label == 1:
             colors.append([0, 255, 0])
-            data.append(voxel)
         if label == 2:
             colors.append([255, 0, 225])
-            data.append(voxel)
         if label == 3:
             colors.append([255, 0, 0])
-            data.append(voxel)'''
 
     '''# Create a mesh of the voxels
     if settings.CREATE_MESH:
@@ -749,7 +744,7 @@ def create_all_models():
 
     print("\n\nAll Frames are ready to be displayed: press 'g' to visualise the next frame")
 
-    return total_voxels_color, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam, total_voxel_volume_cleaned
+    return total_voxels_color, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam, total_voxel_volume_cleaned, total_labels_def
 
 def get_lowest_frame_number():
     lowest_frame_number = float('inf')
@@ -779,5 +774,5 @@ for camera_number in range(1, settings.NUM_CAMERAS+1):
     background_model_path = f'data/cam{camera_number}/background_model.jpg'
     optimal_thresholds = manual_segmentation_comparison(camera_number, first_video_frame, background_model_path, manual_mask_path, steps=[50, 10, 5, 1])
     create_segmented_video(video_path, background_model_path, optimal_thresholds)
-total_voxels_color, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam, total_voxel_volume_cleaned = create_all_models()
+total_voxels_color, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam, total_voxel_volume_cleaned, total_labels_def = create_all_models()
     
