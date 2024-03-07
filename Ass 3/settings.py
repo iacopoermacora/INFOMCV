@@ -53,7 +53,9 @@ NUMBER_OF_FRAMES_TO_ANALYSE = 100 # TODO: Set to 100
 # Frame of the video to display in the 3D visualiser
 STARTING_FRAME_NUMBER = 0 # NOTE: Starting frame number out of the number of frames to analyse JUST FOR TEST, OTHERWISE SET TO 0
 # Maximum number of frames to analyse
-MAX_NUMBER_OF_FRAMES = 50 # NOTE: Maximum number of frames to analyse JUST FOR TEST, OTHERWISE SET TO INFINITY
+MAX_NUMBER_OF_FRAMES = 100 # NOTE: Maximum number of frames to analyse JUST FOR TEST, OTHERWISE SET TO INFINITY
+# Index of the frame for offline color model
+OFFLINE_IDX = [1, 4, 67, 382] # FIND IDEAL FRAMES
 
 # Number of clusters
 NUMBER_OF_CLUSTERS = 4

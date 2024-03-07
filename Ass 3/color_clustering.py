@@ -9,18 +9,15 @@ from scipy.spatial.distance import cdist
 from scipy.optimize import linear_sum_assignment
 
 
-
-def color_model():
+def color_model(voxels, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam, idx = 0, offline = False):
     
     '''
     Creates the color models for all the subjects for all the cameras
     '''
     
+    # TODO: change the code to other names and shape it differently
 
-    # NOTE: visible_voxels_per_cam, visible_voxels_colors_per_cam
-    # NOTE: change the code to other names and shape it differently
-
-    labels, centers = cluster_voxels(voxels)
+    labels, centers = cluster_voxels(voxels) # TODO: don't we already have these? Why are we clustering again?
     labels = np.ravel(labels)
 
     voxels = np.float32(voxels)
@@ -29,11 +26,12 @@ def color_model():
 
     # Loop over all cameras
     for n_camera in range(1, settings.NUM_CAMERAS+1):
-
+        if offline:
+            idx == settings.OFFLINE_IDX[n_camera-1]
         color_models = []
         for label in range(settings.NUMBER_OF_CLUSTERS):
 
-            voxels_person = voxels[labels == label]  # save voxel if the label is same NOTE: Not sure of the shape of stuff happening here
+            voxels_person = voxels[labels == label]  # save voxel if the label is same TODO: Not sure of the shape of stuff happening here
             pixelCluster, colorCluster = [], []
 
             # Take only above the belt and cut the head
@@ -45,9 +43,9 @@ def color_model():
             voxel_roi = voxels_person_roi[:, 1] < 3 / 4 * head
             voxels_person_roi = voxels_person_roi[voxel_roi]
 
-            # NOTE: Only keep voxels that are part of intersection between visible_voxels_per_cam and voxels_person_roi. Assign them the color from visible_voxels_colors_per_cam
+            # TODO/NOTE: Only keep voxels that are part of intersection between visible_voxels_per_cam and voxels_person_roi. Assign them the color from visible_voxels_colors_per_cam
             # Create a numpy array of visible_voxels_colors_per_cam if the intersection between visible_voxels_per_cam and voxels_person_roi
-            roi = np.array([visible_voxels_colors_per_cam[n_camera][tuple(v)] for v in voxels_person_roi if visible_voxels_per_cam[n_camera][tuple(v)]])
+            roi = np.array([total_visible_voxels_colors_per_cam[idx][n_camera][tuple(v)] for v in voxels_person_roi if total_visible_voxels_per_cam[idx][n_camera][tuple(v)]])
             roi = np.float32(roi)
 
             # Create a GMM model
@@ -110,6 +108,8 @@ def remove_outliers_and_ghosts(labels_def, centers, voxels, voxels_no_height):
 
     # centers_no_outliers_matched = match_center(centers, centers_no_outliers)
 
+    voxels_no_outliers = [[float(row[0]), float(row[1]), float(row[2])] for row in voxels_no_outliers]
+
     return labels_def_no_outliers, centers_no_outliers, voxels_no_outliers
 
 def cluster_voxels(voxels):
@@ -155,15 +155,14 @@ def majority_labeling(all_predictions, camera_preference = None):
 
     return final_labels
 
-
-def online_phase(cam_color_models, voxels, visible_voxels_colors_per_cam, visible_voxels_per_cam):
+def online_phase(total_visible_voxels_colors_per_cam, total_visible_voxels_per_cam, idx): # TODO: Probably need to import the clustering?
     """
     Contains a comparison of the offline color models with the online ones, a
     label matching to obtain the final labelling of each person, and initiates 2D path tracking on the floor.
     """
     
-    cam_color_models_offline = color_model(visible_voxels_colors_per_cam, visible_voxels_per_cam)
-    cam_color_models_online = color_model(visible_voxels_colors_per_cam, visible_voxels_per_cam)
+    cam_color_models_offline = color_model(total_visible_voxels_colors_per_cam, total_visible_voxels_per_cam, offline = True) # TODO: probably need to edit the order of the labeling
+    cam_color_models_online = color_model(total_visible_voxels_colors_per_cam, total_visible_voxels_per_cam, idx = idx)
     
     all_predictions = []
     
@@ -173,18 +172,18 @@ def online_phase(cam_color_models, voxels, visible_voxels_colors_per_cam, visibl
         for label_offline, color_model_offline in enumerate(cam_color_models_offline[n_camera]):
             cost_row = []
             for label_online, color_model_online in enumerate(cam_color_models_online[n_camera]):
-                log_likelihood_offline = color_model_offline.score_samples(visible_voxels_colors_per_cam[n_camera])
-                log_likelihood_online = color_model_online.score_samples(visible_voxels_colors_per_cam[n_camera])
+                log_likelihood_offline = color_model_offline.score_samples(total_visible_voxels_colors_per_cam[n_camera]) # TODO: I do not understand what is happening here and what is being passed
+                log_likelihood_online = color_model_online.score_samples(total_visible_voxels_colors_per_cam[n_camera])
                 
                 # a higher likelihood (less negative) indicates a better match between models
                 distance = -(log_likelihood_offline + log_likelihood_online) 
                 cost_row.append(distance)
                 
             # Add the complete row to the cost matrix  
-            cost_matrix.append(cost_row)  
+            cost_matrix.append(cost_row)
 
         # Convert the cost matrix to a numpy array
-        cost_matrix = np.array(cost_matrix) 
+        cost_matrix = np.array(cost_matrix)
 
         # Run the Hungarian algorithm
         row_ind, col_ind = linear_sum_assignment(cost_matrix)
@@ -205,7 +204,7 @@ def online_phase(cam_color_models, voxels, visible_voxels_colors_per_cam, visibl
         camera_preference = None
         final_labels = majority_labeling(all_predictions, camera_preference)
 
-    return 
+    return final_labels
                 
                 
                 # PSEUDO:
@@ -228,12 +227,3 @@ def online_phase(cam_color_models, voxels, visible_voxels_colors_per_cam, visibl
 
         # Get the final labeling
         # final_labeling(cam_color_models_offline, visible_voxels_colors_per_cam, visible_voxels_per_cam, roi) # to check and implement
-
-        
-
-
-            
-                
-            
-                
-            

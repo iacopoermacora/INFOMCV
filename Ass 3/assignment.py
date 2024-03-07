@@ -47,6 +47,7 @@ def set_voxel_positions(width, height, depth):
     # Create a lookup table to store the voxel coordinates and the corresponding pixel coordinates for each camera
 
     idx = frame_cnt
+    col_cl.online_phase(total_visible_voxels_colors_per_cam, total_visible_voxels_per_cam, idx)
 
     # Create a counter to store the number of visible voxels in all cameras
     visible_all_cameras = 0
@@ -692,7 +693,7 @@ def create_all_models():
 
     print("\nVoxel model created")
 
-    total_labels_def = [] # NOTE: Move this inside a function that checks if we already have that information
+    total_labels_def = [] # TODO: Move this inside a function that checks if we already have that information
     total_centers = []
     total_voxels = []
     total_voxel_volume_cleaned = []
@@ -720,8 +721,6 @@ def create_all_models():
                             # colors.append(total_voxels_color[idx][x, z, y])
             
             labels_def, centers, voxels = col_cl.cluster_voxels(voxels)
-
-            voxels = [[float(row[0]), float(row[1]), float(row[2])] for row in voxels]
 
             voxel_volume_cleaned = np.zeros((settings.WIDTH, settings.DEPTH, settings.HEIGHT), dtype=bool)
             for voxel in voxels:
