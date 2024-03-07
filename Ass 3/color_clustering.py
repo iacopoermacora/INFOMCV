@@ -22,7 +22,45 @@ def color_model(total_voxels, total_labels, total_visible_voxels_per_cam, total_
     # Loop over all cameras
     for n_camera in range(1, settings.NUM_CAMERAS+1):
         if offline:
-            idx == settings.OFFLINE_IDX[n_camera-1]
+            idx == settings.OFFLINE_IDX[n_camera-1] # TODO: Remember to add the frames of the offline models to the list of frames to consider and change this line of code accordingly
+            for label in total_labels[idx]:
+                if n_camera == 1:
+                    if label == 0:
+                        label = 1
+                    elif label == 1:
+                        label = 2
+                    elif label == 2:
+                        label = 0
+                    elif label == 3:
+                        label = 3
+                elif n_camera == 2:
+                    if label == 0:
+                        label = 0
+                    elif label == 1:
+                        label = 2
+                    elif label == 2:
+                        label = 3
+                    elif label == 3:
+                        label = 1
+                elif n_camera == 3:
+                    if label == 0:
+                        label = 0
+                    elif label == 1:
+                        label = 1
+                    elif label == 2:
+                        label = 3
+                    elif label == 3:
+                        label = 2
+                elif n_camera == 4:
+                    if label == 0:
+                        label = 0
+                    elif label == 1:
+                        label = 2
+                    elif label == 2:
+                        label = 3
+                    elif label == 3:
+                        label = 1
+                        
             labels = np.ravel(total_labels[idx])
             # TODO: Implement code that, based on "known" (to find) centres of the clusters for each camera, 
             # assigns the labels to the clusters in the order of the known centres so that for all the cameras 
@@ -107,6 +145,8 @@ def remove_outliers_and_ghosts(labels_def, centers, voxels, voxels_no_height):
     # Cluster voxels in 3d space based on x/y information
     criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 10, 0.1)
 
+    np.random.seed(0)
+
     _, labels_def_no_outliers, centers_no_outliers = cv.kmeans(voxels_no_outliers_no_height, 4, None, criteria, 20, cv.KMEANS_RANDOM_CENTERS)
 
     # centers_no_outliers_matched = match_center(centers, centers_no_outliers)
@@ -122,6 +162,8 @@ def cluster_voxels(voxels):
     criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 10, 0.1) # number of iterations, epsilon value (either when epsilon or number of iteration is reached)
     
     voxels_no_height = np.float32(voxels)[:, [0, 2]] # Keep first and third column
+
+    np.random.seed(0)
 
     _, labels_def, centers = cv.kmeans(voxels_no_height, 4, None, criteria, 20, cv.KMEANS_RANDOM_CENTERS) # 4 is number of clusters, 20 is number of attempts, centres randomly chosen
 

@@ -48,9 +48,10 @@ def set_voxel_positions(width, height, depth):
     data, colors = [], []
     # Create a lookup table to store the voxel coordinates and the corresponding pixel coordinates for each camera
 
+    idx = frame_cnt
+
     data = total_voxels[idx]
 
-    idx = frame_cnt
     final_labels = col_cl.online_phase(total_centers, total_labels, total_voxels, total_visible_voxels_colors_per_cam, total_visible_voxels_per_cam, idx)
 
     '''# Create a counter to store the number of visible voxels in all cameras
@@ -146,7 +147,7 @@ def increment_frame_count():
     global frame_cnt
     frame_cnt += 1
 
-    return frame_cnt <= min(settings.MAX_NUMBER_OF_FRAMES, settings.NUMBER_OF_FRAMES_TO_ANALYSE)
+    return frame_cnt <= min(settings.MAX_NUMBER_OF_FRAMES + len(settings.OFFLINE_IDX), settings.NUMBER_OF_FRAMES_TO_ANALYSE + len(settings.OFFLINE_IDX))
 
 def create_lookup_table():
     '''
@@ -222,8 +223,10 @@ def create_voxel_model(lookup_table):
     number_of_frames = get_lowest_frame_number()
     frame_step_size = int((number_of_frames - number_of_frames%settings.NUMBER_OF_FRAMES_TO_ANALYSE)/settings.NUMBER_OF_FRAMES_TO_ANALYSE)
     starting_frame = frame_step_size * settings.STARTING_FRAME_NUMBER
-    for i, frame_number in tqdm(enumerate(range(starting_frame, number_of_frames, frame_step_size)), desc="Creating Voxel Model - Frame Iteration"):
-        if i == settings.MAX_NUMBER_OF_FRAMES:
+    frames = list(range(starting_frame, number_of_frames, frame_step_size))
+    frames.extend(settings.OFFLINE_IDX)
+    for i, frame_number in tqdm(enumerate(frames), desc="Creating Voxel Model - Frame Iteration"):
+        if i == settings.MAX_NUMBER_OF_FRAMES + len(settings.OFFLINE_IDX):
             break
         foreground_mask = []
         color_images = []
@@ -268,7 +271,6 @@ def create_voxel_model(lookup_table):
         total_voxel_volume.append(voxel_volume)
         total_voxel_colors_per_cam.append(voxel_colors_per_cam)
     
-    # TODO: Save to pickle file
     with open(f'voxel_models.pkl', 'wb') as f:
         data_to_save = (total_voxel_volume, total_voxel_colors_per_cam)
         pickle.dump(data_to_save, f, protocol=4)
@@ -611,8 +613,10 @@ def assign_colors(total_voxel_volume, total_voxel_colors_per_cam): # NOTE: This 
     number_of_frames = get_lowest_frame_number()
     frame_step_size = int((number_of_frames - number_of_frames%settings.NUMBER_OF_FRAMES_TO_ANALYSE)/settings.NUMBER_OF_FRAMES_TO_ANALYSE)
     starting_frame = frame_step_size * settings.STARTING_FRAME_NUMBER
-    for idx, frame_number in tqdm(enumerate(range(starting_frame, number_of_frames, frame_step_size)), desc="Assigning Colors - Frame Iteration"):
-        if idx == settings.MAX_NUMBER_OF_FRAMES:
+    frames = list(range(starting_frame, number_of_frames, frame_step_size))
+    frames.extend(settings.OFFLINE_IDX)
+    for idx, frame_number in tqdm(enumerate(frames), desc="Assigning Colors - Frame Iteration"):
+        if idx == settings.MAX_NUMBER_OF_FRAMES  + len(settings.OFFLINE_IDX):
             break
         # Get the voxel positions
         voxel_positions = np.argwhere(total_voxel_volume[idx])
