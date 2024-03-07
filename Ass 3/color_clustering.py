@@ -10,9 +10,11 @@ from scipy.optimize import linear_sum_assignment
 
 
 
-'''def color_model():
+def color_model():
     
+    '''
     Creates the color models for all the subjects for all the cameras
+    '''
     
 
     # NOTE: visible_voxels_per_cam, visible_voxels_colors_per_cam
@@ -59,7 +61,7 @@ from scipy.optimize import linear_sum_assignment
 
         cam_color_models[n_camera] = color_models
 
-    return cam_color_models # color_models is a list of n_camera lists of n_people color models'''
+    return cam_color_models # color_models is a list of n_camera lists of n_people color models
 
 '''def match_center(centers, centers_no_outliers):
     
@@ -126,57 +128,112 @@ def cluster_voxels(voxels):
 
     return labels_def_no_outliers, centers_no_outliers, voxels_no_outliers
 
-def final_labeling(cam_color_models, visible_voxels_colors_per_cam, visible_voxels_per_cam, roi):
-    return
+def majority_labeling(all_predictions, camera_preference = None):
+    '''
+    Aggregate predictions from all cameras and determine the final label for each cluster
+    based on a majority vote. In case of ties, preferences 
+    '''
+    # Initialize a structure to hold vote counts for each cluster's label
+    vote_counts = [{} for _ in range(max(map(len, all_predictions)))]  # Create a list of dictionaries, one for each cluster
+    
+
+    for camera_index, predictions in enumerate(all_predictions): 
+        for cluster_index, label in enumerate(predictions):
+            if label not in vote_counts[cluster_index]:
+                # Initialize the vote count for this label
+                vote_counts[cluster_index][label] = 0 
+            # Increment the vote count for this label; consider camera preference if specified
+            vote_increment = 1 if camera_preference is None else camera_preference[camera_index]
+            vote_counts[cluster_index][label] += vote_increment
+
+    # Determine the final label for each cluster based on majority vote
+    final_labels = []
+    for cluster_votes in vote_counts:
+        # Sort labels by vote count (and by camera preference in case of a tie)
+        sorted_votes = sorted(cluster_votes.items(), key=lambda item: (-item[1], camera_preference.index(item[0]) if camera_preference else 0))
+        final_labels.append(sorted_votes[0][0] if sorted_votes else None)
+
+    return final_labels
 
 
-'''def online_phase(cam_color_models, voxels, visible_voxels_colors_per_cam, visible_voxels_per_cam):
+def online_phase(cam_color_models, voxels, visible_voxels_colors_per_cam, visible_voxels_per_cam):
     """
-    online is a function dedicated to develop the online phase of assignment 3. It is composed of a
-    K-means clustering, a comparison of the offline color models to the online GMMs probabilities, a
-    label matching to obtain the final labelling of each person and a 2D path tracking on the floor.
+    Contains a comparison of the offline color models with the online ones, a
+    label matching to obtain the final labelling of each person, and initiates 2D path tracking on the floor.
     """
     
     cam_color_models_offline = color_model(visible_voxels_colors_per_cam, visible_voxels_per_cam)
     cam_color_models_online = color_model(visible_voxels_colors_per_cam, visible_voxels_per_cam)
     
-    predictions = []
-    log_likelihood_offline = []
-    log_likelihood_online = []
-
-    cost_matrix = []
-    for label_offline, color_model_offline in enumerate(cam_color_models_offline[n_camera]):
-        cost_row = []
-        for label_online, color_model_online in enumerate(cam_color_models_online[n_camera]):
-            
-            distance = calculate_distance(color_model_offline, color_model_online) # NOTE: fix function/implement it
-            cost_row.append(distance)
-            # PSEUDO:
-            # 1. Calculate the distance between the offline and the online model
-            # 2. Insert the distance in the cost matrix
-        cost_matrix = np.array(cost_matrix)
-    # 3. Call the hungarian algorithm
-    # 4. Save the values in the cost matrix
-    # Run the Hungarian algorithm
-    row_ind, col_ind = linear_sum_assignment(cost_matrix)
-    # The `row_ind` and `col_ind` arrays represent the optimal assignment
-    # You can use these indices to understand which offline model best matches with which online model
-
-    # For handling ties or preferences over cameras, you would need to implement additional logic
-    # This could involve comparing distances or having predefined rules for tiebreakers
+    all_predictions = []
     
-    # 5. Save based on majority label over the different cameras (hope for no ties or implement a preference system over the cameras)
+    # Loop over all cameras
+    for n_camera in range(1, settings.NUM_CAMERAS+1):
+        cost_matrix = []
+        for label_offline, color_model_offline in enumerate(cam_color_models_offline[n_camera]):
+            cost_row = []
+            for label_online, color_model_online in enumerate(cam_color_models_online[n_camera]):
+                log_likelihood_offline = color_model_offline.score_samples(visible_voxels_colors_per_cam[n_camera])
+                log_likelihood_online = color_model_online.score_samples(visible_voxels_colors_per_cam[n_camera])
+                
+                # a higher likelihood (less negative) indicates a better match between models
+                distance = -(log_likelihood_offline + log_likelihood_online) 
+                cost_row.append(distance)
+                
+            # Add the complete row to the cost matrix  
+            cost_matrix.append(cost_row)  
 
-    predictions.append(col_ind) # Store the optimal assignment for the current camera
+        # Convert the cost matrix to a numpy array
+        cost_matrix = np.array(cost_matrix) 
 
-    # Get the final labeling
-    final_labeling(cam_color_models_offline, visible_voxels_colors_per_cam, visible_voxels_per_cam, roi) # to check and implement
+        # Run the Hungarian algorithm
+        row_ind, col_ind = linear_sum_assignment(cost_matrix)
+        
+        # Store the optimal assignment for the current camera
+        predictions = col_ind
+        all_predictions.append(predictions)  # Store prediction for all cameras
 
-    return predictions'''
+        # Print the cost matrix
+        print("Cost matrix:\n", cost_matrix)
+        
+        # Print the optimal assignments
+        print("\nOptimal assignments:")
+        for row, col in zip(row_ind, col_ind):
+            print(f"Offline model {row} matched with online model {col} with cost (distance): {cost_matrix[row, col]}")
+        
+        # Get the final labeling
+        camera_preference = None
+        final_labels = majority_labeling(all_predictions, camera_preference)
 
+    return 
+                
+                
+                # PSEUDO:
+                # 1. Calculate the distance between the offline and the online model
+                # 2. Insert the distance in the cost matrix
+            # cost_matrix = np.array(cost_matrix)
+        # 3. Call the hungarian algorithm
+        # 4. Save the values in the cost matrix
+        # Run the Hungarian algorithm
+        # row_ind, col_ind = linear_sum_assignment(cost_matrix)
+        # The `row_ind` and `col_ind` arrays represent the optimal assignment
+        # You can use these indices to understand which offline model best matches with which online model
+
+        # For handling ties or preferences over cameras, you would need to implement additional logic
+        # This could involve comparing distances or having predefined rules for tiebreakers
+        
+        # 5. Save based on majority label over the different cameras (hope for no ties or implement a preference system over the cameras)
+
+        # predictions.append(col_ind) # Store the optimal assignment for the current camera
+
+        # Get the final labeling
+        # final_labeling(cam_color_models_offline, visible_voxels_colors_per_cam, visible_voxels_per_cam, roi) # to check and implement
 
         
+
+
             
-        
+                
             
-           
+                
+            
