@@ -17,17 +17,20 @@ def color_model(total_voxels, total_labels, total_visible_voxels_per_cam, total_
     
     # TODO: change the code to other names and shape it differently
 
-    # labels, centers = cluster_voxels(voxels) # NOTE: We already have these
-    labels = np.ravel(total_labels[idx])
-
-    voxels = np.float32(total_voxels[idx])
-
     cam_color_models = [[], [], [], []]
 
     # Loop over all cameras
     for n_camera in range(1, settings.NUM_CAMERAS+1):
         if offline:
             idx == settings.OFFLINE_IDX[n_camera-1]
+            labels = np.ravel(total_labels[idx])
+            # TODO: Implement code that, based on "known" (to find) centres of the clusters for each camera, 
+            # assigns the labels to the clusters in the order of the known centres so that for all the cameras 
+            # the labels are the same (for instance, guy with stripes tshirt always have label 1, guy with blue 
+            # tshirt always have label 2, etc.)
+        else:
+            labels = np.ravel(total_labels[idx])
+        voxels = np.float32(total_voxels[idx])
         color_models = []
         for label in range(settings.NUMBER_OF_CLUSTERS):
 
@@ -155,14 +158,18 @@ def majority_labeling(all_predictions, camera_preference = None):
 
     return final_labels
 
-def online_phase(total_voxels, total_labels, total_visible_voxels_colors_per_cam, total_visible_voxels_per_cam, idx):
+def online_phase(total_centers, total_labels, total_voxels, total_visible_voxels_colors_per_cam, total_visible_voxels_per_cam, idx):
     """
     Contains a comparison of the offline color models with the online ones, a
     label matching to obtain the final labelling of each person, and initiates 2D path tracking on the floor.
     """
     
-    cam_color_models_offline = color_model(total_voxels, total_labels, total_visible_voxels_colors_per_cam, total_visible_voxels_per_cam, offline = True) # TODO: We have to pay attention here to the order of the labeling, by choosing a different idx for each camera the labels are going to be all fucked. I'll try to figure this out but i need to think about it a bit.
-    cam_color_models_online = color_model(total_voxels, total_labels, total_visible_voxels_colors_per_cam, total_visible_voxels_per_cam, idx = idx)
+    # TODO: We have to pay attention here to the order of the labeling, by choosing a different idx for each camera the labels are going to be all fucked. 
+    # I'll try to figure this out but i need to think about it a bit.
+    # POSSIBLE SOLUTION: Because we know every frame (in settings.OFFLINE_IDX there is the idx of the frame) and the centres of the clustering, 
+    # we could map for each camera, the label to the cluster we want, so that we make sure that for all cameras, the models are created for the guys we want.
+    cam_color_models_offline = color_model(total_centers, total_voxels, total_labels, total_visible_voxels_colors_per_cam, total_visible_voxels_per_cam, offline = True)
+    cam_color_models_online = color_model(total_centers, total_voxels, total_labels, total_visible_voxels_colors_per_cam, total_visible_voxels_per_cam, idx = idx)
     
     all_predictions = []
     

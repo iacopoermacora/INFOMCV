@@ -41,6 +41,7 @@ def set_voxel_positions(width, height, depth):
     global total_visible_voxels_per_cam
     global total_visible_voxels_colors_per_cam
     global total_voxel_volume_cleaned
+    global total_centers
     global total_labels
     global total_voxels
 
@@ -48,9 +49,9 @@ def set_voxel_positions(width, height, depth):
     # Create a lookup table to store the voxel coordinates and the corresponding pixel coordinates for each camera
 
     data = total_voxels[idx]
-    
+
     idx = frame_cnt
-    final_labels = col_cl.online_phase(total_voxels, total_labels, total_visible_voxels_colors_per_cam, total_visible_voxels_per_cam, idx)
+    final_labels = col_cl.online_phase(total_centers, total_labels, total_voxels, total_visible_voxels_colors_per_cam, total_visible_voxels_per_cam, idx)
 
     '''# Create a counter to store the number of visible voxels in all cameras
     visible_all_cameras = 0
@@ -749,7 +750,7 @@ def create_all_models():
 
     print("\n\nAll Frames are ready to be displayed: press 'g' to visualise the next frame")
 
-    return total_voxels_color, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam, total_voxel_volume_cleaned, total_labels, total_voxels
+    return total_voxels_color, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam, total_voxel_volume_cleaned, total_centers, total_labels, total_voxels
 
 def get_lowest_frame_number():
     lowest_frame_number = float('inf')
@@ -779,5 +780,5 @@ for camera_number in range(1, settings.NUM_CAMERAS+1):
     background_model_path = f'data/cam{camera_number}/background_model.jpg'
     optimal_thresholds = manual_segmentation_comparison(camera_number, first_video_frame, background_model_path, manual_mask_path, steps=[50, 10, 5, 1])
     create_segmented_video(video_path, background_model_path, optimal_thresholds)
-total_voxels_color, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam, total_voxel_volume_cleaned, total_labels, total_voxels = create_all_models()
+total_voxels_color, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam, total_voxel_volume_cleaned, total_centers, total_labels, total_voxels = create_all_models()
     

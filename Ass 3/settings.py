@@ -55,7 +55,7 @@ STARTING_FRAME_NUMBER = 0 # NOTE: Starting frame number out of the number of fra
 # Maximum number of frames to analyse
 MAX_NUMBER_OF_FRAMES = 100 # NOTE: Maximum number of frames to analyse JUST FOR TEST, OTHERWISE SET TO INFINITY
 # Index of the frame for offline color model
-OFFLINE_IDX = [1, 4, 67, 382] # FIND IDEAL FRAMES
+OFFLINE_IDX = [660, 0, 660, 520] # FIND IDEAL FRAMES
 
 # Number of clusters
 NUMBER_OF_CLUSTERS = 4
