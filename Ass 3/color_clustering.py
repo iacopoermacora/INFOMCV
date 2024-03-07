@@ -9,7 +9,7 @@ from scipy.spatial.distance import cdist
 from scipy.optimize import linear_sum_assignment
 
 
-def color_model(voxels, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam, idx = 0, offline = False):
+def color_model(total_voxels, total_labels, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam, idx = 0, offline = False):
     
     '''
     Creates the color models for all the subjects for all the cameras
@@ -17,10 +17,10 @@ def color_model(voxels, total_visible_voxels_per_cam, total_visible_voxels_color
     
     # TODO: change the code to other names and shape it differently
 
-    labels, centers = cluster_voxels(voxels) # TODO: don't we already have these? Why are we clustering again?
-    labels = np.ravel(labels)
+    # labels, centers = cluster_voxels(voxels) # NOTE: We already have these
+    labels = np.ravel(total_labels[idx])
 
-    voxels = np.float32(voxels)
+    voxels = np.float32(total_voxels[idx])
 
     cam_color_models = [[], [], [], []]
 
@@ -155,14 +155,14 @@ def majority_labeling(all_predictions, camera_preference = None):
 
     return final_labels
 
-def online_phase(total_visible_voxels_colors_per_cam, total_visible_voxels_per_cam, idx): # TODO: Probably need to import the clustering?
+def online_phase(total_voxels, total_labels, total_visible_voxels_colors_per_cam, total_visible_voxels_per_cam, idx):
     """
     Contains a comparison of the offline color models with the online ones, a
     label matching to obtain the final labelling of each person, and initiates 2D path tracking on the floor.
     """
     
-    cam_color_models_offline = color_model(total_visible_voxels_colors_per_cam, total_visible_voxels_per_cam, offline = True) # TODO: probably need to edit the order of the labeling
-    cam_color_models_online = color_model(total_visible_voxels_colors_per_cam, total_visible_voxels_per_cam, idx = idx)
+    cam_color_models_offline = color_model(total_voxels, total_labels, total_visible_voxels_colors_per_cam, total_visible_voxels_per_cam, offline = True) # TODO: We have to pay attention here to the order of the labeling, by choosing a different idx for each camera the labels are going to be all fucked. I'll try to figure this out but i need to think about it a bit.
+    cam_color_models_online = color_model(total_voxels, total_labels, total_visible_voxels_colors_per_cam, total_visible_voxels_per_cam, idx = idx)
     
     all_predictions = []
     
@@ -172,8 +172,8 @@ def online_phase(total_visible_voxels_colors_per_cam, total_visible_voxels_per_c
         for label_offline, color_model_offline in enumerate(cam_color_models_offline[n_camera]):
             cost_row = []
             for label_online, color_model_online in enumerate(cam_color_models_online[n_camera]):
-                log_likelihood_offline = color_model_offline.score_samples(total_visible_voxels_colors_per_cam[n_camera]) # TODO: I do not understand what is happening here and what is being passed
-                log_likelihood_online = color_model_online.score_samples(total_visible_voxels_colors_per_cam[n_camera])
+                log_likelihood_offline = color_model_offline.score_samples(total_visible_voxels_colors_per_cam[idx][n_camera]) # TODO: I do not understand what is happening here and what is being passed, I think these are not the values that we want to give or I am understanding something wrong
+                log_likelihood_online = color_model_online.score_samples(total_visible_voxels_colors_per_cam[idx][n_camera])
                 
                 # a higher likelihood (less negative) indicates a better match between models
                 distance = -(log_likelihood_offline + log_likelihood_online) 
@@ -189,7 +189,7 @@ def online_phase(total_visible_voxels_colors_per_cam, total_visible_voxels_per_c
         row_ind, col_ind = linear_sum_assignment(cost_matrix)
         
         # Store the optimal assignment for the current camera
-        predictions = col_ind
+        predictions = col_ind # TODO: How do we know that they are the predictions? And are the predictions of what and in what order?
         all_predictions.append(predictions)  # Store prediction for all cameras
 
         # Print the cost matrix
@@ -202,9 +202,10 @@ def online_phase(total_visible_voxels_colors_per_cam, total_visible_voxels_per_c
         
         # Get the final labeling
         camera_preference = None
-        final_labels = majority_labeling(all_predictions, camera_preference)
+        final_labels = majority_labeling(all_predictions, camera_preference) # TODO: These final labels, what are they? And in what order are they given?
 
-    return final_labels
+    return final_labels # NOTE: I will assume that this final labels are the new labels in the order of the old labels (example in next line)
+    # EXAMPLE: If final_labels = [3, 1, 2, 4] then the labels will be changed like this [1, 2, 3, 4] -> [3, 1, 2, 4] (the first label is changed to 3, the second to 1, the third to 2 and the fourth to 4)
                 
                 
                 # PSEUDO:

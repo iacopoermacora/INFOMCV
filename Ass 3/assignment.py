@@ -41,15 +41,18 @@ def set_voxel_positions(width, height, depth):
     global total_visible_voxels_per_cam
     global total_visible_voxels_colors_per_cam
     global total_voxel_volume_cleaned
-    global total_labels_def
+    global total_labels
+    global total_voxels
 
     data, colors = [], []
     # Create a lookup table to store the voxel coordinates and the corresponding pixel coordinates for each camera
 
+    data = total_voxels[idx]
+    
     idx = frame_cnt
-    col_cl.online_phase(total_visible_voxels_colors_per_cam, total_visible_voxels_per_cam, idx)
+    final_labels = col_cl.online_phase(total_voxels, total_labels, total_visible_voxels_colors_per_cam, total_visible_voxels_per_cam, idx)
 
-    # Create a counter to store the number of visible voxels in all cameras
+    '''# Create a counter to store the number of visible voxels in all cameras
     visible_all_cameras = 0
     for x in tqdm(range(settings.WIDTH), desc="Voxel Projection - Visible Voxels"):
             for y in range(settings.HEIGHT):
@@ -60,9 +63,11 @@ def set_voxel_positions(width, height, depth):
                         voxel_to_display = [x*block_size - settings.WIDTH/2, y*block_size, z*block_size - settings.DEPTH/2]
                         # data.append(voxel_to_display)
                         data.append(voxel_to_display) # NOTE: This is for the clustering
-                        # colors.append(total_voxels_color[idx][x, z, y])
-
-    for label in total_labels_def[idx]:
+                        # colors.append(total_voxels_color[idx][x, z, y])'''
+    
+    # Convert the labels to the new labels and assign them colors
+    for label in total_labels[idx]:
+        label = final_labels[label]
         if label == 0:
             colors.append([0, 0, 225])
         if label == 1:
@@ -693,16 +698,17 @@ def create_all_models():
 
     print("\nVoxel model created")
 
-    total_labels_def = [] # TODO: Move this inside a function that checks if we already have that information
-    total_centers = []
-    total_voxels = []
-    total_voxel_volume_cleaned = []
-
     print("\n\nSTEP 3 - New Voxels Projection")
     if os.path.exists(f'post_clustering.pkl'):
         with open(f'post_clustering.pkl', 'rb') as f:
-            total_labels_def, total_centers, total_voxels, total_voxel_volume_cleaned = pickle.load(f)
+            total_labels, total_centers, total_voxels, total_voxel_volume_cleaned = pickle.load(f)
     else:
+
+        total_labels = []
+        total_centers = []
+        total_voxels = []
+        total_voxel_volume_cleaned = []
+
         for idx in tqdm(range(len(total_voxel_volume)), desc="New Voxels Projection - Frame Iteration"):
             voxels = []
             # Create a counter to store the number of visible voxels in all cameras
@@ -720,19 +726,19 @@ def create_all_models():
                             
                             # colors.append(total_voxels_color[idx][x, z, y])
             
-            labels_def, centers, voxels = col_cl.cluster_voxels(voxels)
+            labels, centers, voxels = col_cl.cluster_voxels(voxels)
 
             voxel_volume_cleaned = np.zeros((settings.WIDTH, settings.DEPTH, settings.HEIGHT), dtype=bool)
             for voxel in voxels:
                 voxel_volume_cleaned[int((voxel[0]+settings.WIDTH/2)/block_size)][int((voxel[2]+settings.DEPTH/2)/block_size)][int(voxel[1]/block_size)] = True
 
-            total_labels_def.append(labels_def)
+            total_labels.append(labels)
             total_centers.append(centers)
             total_voxels.append(voxels)
             total_voxel_volume_cleaned.append(voxel_volume_cleaned)
     
         with open(f'post_clustering.pkl', 'wb') as f:
-            data_to_save = (total_labels_def, total_centers, total_voxels, total_voxel_volume_cleaned)
+            data_to_save = (total_labels, total_centers, total_voxels, total_voxel_volume_cleaned)
             pickle.dump(data_to_save, f, protocol=4)
     
     print("\nNew Voxels projected")
@@ -743,7 +749,7 @@ def create_all_models():
 
     print("\n\nAll Frames are ready to be displayed: press 'g' to visualise the next frame")
 
-    return total_voxels_color, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam, total_voxel_volume_cleaned, total_labels_def
+    return total_voxels_color, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam, total_voxel_volume_cleaned, total_labels, total_voxels
 
 def get_lowest_frame_number():
     lowest_frame_number = float('inf')
@@ -773,5 +779,5 @@ for camera_number in range(1, settings.NUM_CAMERAS+1):
     background_model_path = f'data/cam{camera_number}/background_model.jpg'
     optimal_thresholds = manual_segmentation_comparison(camera_number, first_video_frame, background_model_path, manual_mask_path, steps=[50, 10, 5, 1])
     create_segmented_video(video_path, background_model_path, optimal_thresholds)
-total_voxels_color, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam, total_voxel_volume_cleaned, total_labels_def = create_all_models()
+total_voxels_color, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam, total_voxel_volume_cleaned, total_labels, total_voxels = create_all_models()
     
