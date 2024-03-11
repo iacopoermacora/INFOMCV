@@ -1,6 +1,11 @@
 import numpy as np
+import cv2 as cv
 
-arr = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
-voxels_list = [array.tolist() for array in np.array_split(arr, len(arr))]
-
-print(voxels_list)
+video_path_color = f'data/cam1/video.avi'
+cap_color = cv.VideoCapture(video_path_color)
+cap_color.set(cv.CAP_PROP_POS_FRAMES, 0)
+_, frame_color = cap_color.read()
+# Convert frame to HSV
+frame_hsv = cv.cvtColor(frame_color, cv.COLOR_BGR2HSV)
+print(frame_hsv[30, 45])
+print(frame_color[30, 45])

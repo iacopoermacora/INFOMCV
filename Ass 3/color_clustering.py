@@ -8,6 +8,8 @@ import cv2 as cv
 from scipy.spatial.distance import cdist
 from scipy.optimize import linear_sum_assignment
 
+import matplotlib.pyplot as plt
+
 
 def color_model(total_voxels, total_labels, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam, idx = 0, offline = False):
     
@@ -18,11 +20,13 @@ def color_model(total_voxels, total_labels, total_visible_voxels_per_cam, total_
     # TODO: change the code to other names and shape it differently
 
     cam_color_models = [[], [], [], []]
+    cam_rois = [[], [], [], []]
 
     # Loop over all cameras
     for n_camera in range(1, settings.NUM_CAMERAS+1):
         if offline:
-            idx == settings.OFFLINE_IDX[n_camera-1] # TODO: Remember to add the frames of the offline models to the list of frames to consider and change this line of code accordingly
+            idx = n_camera - 1
+            print(f"idx: {idx}")
             for label in total_labels[idx]:
                 if n_camera == 1:
                     if label == 0:
@@ -62,18 +66,18 @@ def color_model(total_voxels, total_labels, total_visible_voxels_per_cam, total_
                         label = 1
                         
             labels = np.ravel(total_labels[idx])
-            # TODO: Implement code that, based on "known" (to find) centres of the clusters for each camera, 
-            # assigns the labels to the clusters in the order of the known centres so that for all the cameras 
-            # the labels are the same (for instance, guy with stripes tshirt always have label 1, guy with blue 
-            # tshirt always have label 2, etc.)
         else:
             labels = np.ravel(total_labels[idx])
         voxels = np.float32(total_voxels[idx])
         color_models = []
+        rois = []
         for label in range(settings.NUMBER_OF_CLUSTERS):
 
             voxels_person = voxels[labels == label]  # save voxel if the label is same TODO: Not sure of the shape of stuff happening here
-            pixelCluster, colorCluster = [], []
+            # Reshape voxels_person to x, y, z coordinates (and not voxel shaped)
+            voxels_person[:, 0] = (voxels_person[:, 0] + settings.WIDTH/2) / settings.BLOCK_SIZE
+            voxels_person[:, 1] = voxels_person[:, 1] / settings.BLOCK_SIZE
+            voxels_person[:, 2] = (voxels_person[:, 2] + settings.DEPTH/2) / settings.BLOCK_SIZE
 
             # Take only above the belt and cut the head
             tshirt = np.mean(voxels_person[:, 1], dtype=np.int_)
@@ -84,9 +88,11 @@ def color_model(total_voxels, total_labels, total_visible_voxels_per_cam, total_
             voxel_roi = voxels_person_roi[:, 1] < 3 / 4 * head
             voxels_person_roi = voxels_person_roi[voxel_roi]
 
-            # TODO/NOTE: Only keep voxels that are part of intersection between visible_voxels_per_cam and voxels_person_roi. Assign them the color from visible_voxels_colors_per_cam
-            # Create a numpy array of visible_voxels_colors_per_cam if the intersection between visible_voxels_per_cam and voxels_person_roi
-            roi = np.array([total_visible_voxels_colors_per_cam[idx][n_camera][tuple(v)] for v in voxels_person_roi if total_visible_voxels_per_cam[idx][n_camera][tuple(v)]])
+            # Swap y and z in voxels_person_roi
+            voxels_person_roi[:, 1], voxels_person_roi[:, 2] = voxels_person_roi[:, 2], voxels_person_roi[:, 1].copy()
+
+            # Only take the visible voxels for the roi
+            roi = np.array([total_visible_voxels_colors_per_cam[idx][n_camera-1][tuple(v.astype(int))] for v in voxels_person_roi if total_visible_voxels_per_cam[idx][n_camera-1][tuple(v.astype(int))]])
             roi = np.float32(roi)
 
             # Create a GMM model
@@ -97,10 +103,12 @@ def color_model(total_voxels, total_labels, total_visible_voxels_per_cam, total_
             model.trainEM(roi)
 
             color_models.append(model)
+            rois.append(roi)
 
-        cam_color_models[n_camera] = color_models
+        cam_color_models[n_camera-1] = color_models
+        cam_rois[n_camera-1] = rois
 
-    return cam_color_models # color_models is a list of n_camera lists of n_people color models
+    return cam_color_models, cam_rois # color_models is a list of n_camera lists of n_people color models
 
 '''def match_center(centers, centers_no_outliers):
     
@@ -200,7 +208,7 @@ def majority_labeling(all_predictions, camera_preference = None):
 
     return final_labels
 
-def online_phase(total_centers, total_labels, total_voxels, total_visible_voxels_colors_per_cam, total_visible_voxels_per_cam, idx):
+def online_phase(total_labels, total_voxels, total_visible_voxels_colors_per_cam, total_visible_voxels_per_cam, idx):
     """
     Contains a comparison of the offline color models with the online ones, a
     label matching to obtain the final labelling of each person, and initiates 2D path tracking on the floor.
@@ -210,70 +218,41 @@ def online_phase(total_centers, total_labels, total_voxels, total_visible_voxels
     # I'll try to figure this out but i need to think about it a bit.
     # POSSIBLE SOLUTION: Because we know every frame (in settings.OFFLINE_IDX there is the idx of the frame) and the centres of the clustering, 
     # we could map for each camera, the label to the cluster we want, so that we make sure that for all cameras, the models are created for the guys we want.
-    cam_color_models_offline = color_model(total_centers, total_voxels, total_labels, total_visible_voxels_colors_per_cam, total_visible_voxels_per_cam, offline = True)
-    cam_color_models_online = color_model(total_centers, total_voxels, total_labels, total_visible_voxels_colors_per_cam, total_visible_voxels_per_cam, idx = idx)
+    cam_color_models_offline, _ = color_model(total_voxels, total_labels, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam, offline = True)
+    _, cam_rois_online = color_model(total_voxels, total_labels, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam, idx = idx)
     
-    all_predictions = []
-    
+    # Total cost matrix initiation, shaped number of clusters x number of clusters
+    total_cost_matrix = np.zeros((settings.NUMBER_OF_CLUSTERS, settings.NUMBER_OF_CLUSTERS), dtype=np.float32)
     # Loop over all cameras
     for n_camera in range(1, settings.NUM_CAMERAS+1):
-        cost_matrix = []
-        for label_offline, color_model_offline in enumerate(cam_color_models_offline[n_camera]):
+        cost_matrix = [] # TODO: Check if we need and where
+        for roi in cam_rois_online[n_camera - 1]:
             cost_row = []
-            for label_online, color_model_online in enumerate(cam_color_models_online[n_camera]):
-                log_likelihood_offline = color_model_offline.score_samples(total_visible_voxels_colors_per_cam[idx][n_camera]) # TODO: I do not understand what is happening here and what is being passed, I think these are not the values that we want to give or I am understanding something wrong
-                log_likelihood_online = color_model_online.score_samples(total_visible_voxels_colors_per_cam[idx][n_camera])
+            for label_offline, color_model_offline in enumerate(cam_color_models_offline[n_camera-1]):
                 
-                # a higher likelihood (less negative) indicates a better match between models
-                distance = -(log_likelihood_offline + log_likelihood_online) 
-                cost_row.append(distance)
-                
+                log_likelihood = 0.0
+                for color in roi:
+                    (single_log, _), _ = color_model_offline.predict2(color)
+                    log_likelihood += single_log
+
+                cost_row.append(-log_likelihood)
+                    
             # Add the complete row to the cost matrix  
             cost_matrix.append(cost_row)
 
         # Convert the cost matrix to a numpy array
         cost_matrix = np.array(cost_matrix)
 
-        # Run the Hungarian algorithm
-        row_ind, col_ind = linear_sum_assignment(cost_matrix)
-        
-        # Store the optimal assignment for the current camera
-        predictions = col_ind # TODO: How do we know that they are the predictions? And are the predictions of what and in what order?
-        all_predictions.append(predictions)  # Store prediction for all cameras
-
-        # Print the cost matrix
         print("Cost matrix:\n", cost_matrix)
-        
-        # Print the optimal assignments
-        print("\nOptimal assignments:")
-        for row, col in zip(row_ind, col_ind):
-            print(f"Offline model {row} matched with online model {col} with cost (distance): {cost_matrix[row, col]}")
-        
-        # Get the final labeling
-        camera_preference = None
-        final_labels = majority_labeling(all_predictions, camera_preference) # TODO: These final labels, what are they? And in what order are they given?
 
-    return final_labels # NOTE: I will assume that this final labels are the new labels in the order of the old labels (example in next line)
+        total_cost_matrix += cost_matrix
+
+    print("Total cost matrix:\n", total_cost_matrix)
+    # Run the Hungarian algorithm
+    _, predictions = linear_sum_assignment(total_cost_matrix)
+
+    print("\nOptimal assignments:", predictions) # NOTE: Predictions are, in the order of the labels of the frame (random ones), which label (ACTUAL, CORRECT LABELS) is the best for the current camera based on the color models
+        
+    return predictions # NOTE: I will assume that this final labels are the new labels in the order of the old labels (example in next line)
     # EXAMPLE: If final_labels = [3, 1, 2, 4] then the labels will be changed like this [1, 2, 3, 4] -> [3, 1, 2, 4] (the first label is changed to 3, the second to 1, the third to 2 and the fourth to 4)
-                
-                
-                # PSEUDO:
-                # 1. Calculate the distance between the offline and the online model
-                # 2. Insert the distance in the cost matrix
-            # cost_matrix = np.array(cost_matrix)
-        # 3. Call the hungarian algorithm
-        # 4. Save the values in the cost matrix
-        # Run the Hungarian algorithm
-        # row_ind, col_ind = linear_sum_assignment(cost_matrix)
-        # The `row_ind` and `col_ind` arrays represent the optimal assignment
-        # You can use these indices to understand which offline model best matches with which online model
-
-        # For handling ties or preferences over cameras, you would need to implement additional logic
-        # This could involve comparing distances or having predefined rules for tiebreakers
-        
-        # 5. Save based on majority label over the different cameras (hope for no ties or implement a preference system over the cameras)
-
-        # predictions.append(col_ind) # Store the optimal assignment for the current camera
-
-        # Get the final labeling
-        # final_labeling(cam_color_models_offline, visible_voxels_colors_per_cam, visible_voxels_per_cam, roi) # to check and implement
+            

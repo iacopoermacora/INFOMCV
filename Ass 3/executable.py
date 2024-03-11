@@ -6,14 +6,38 @@ from engine.buffer.texture import *
 from engine.buffer.hdrbuffer import HDRBuffer
 from engine.buffer.blurbuffer import BlurBuffer
 from engine.effect.bloom import Bloom
-from assignment import set_voxel_positions, generate_grid, get_cam_positions, get_cam_rotation_matrices, increment_frame_count
+from assignment import set_voxel_positions, generate_grid, get_cam_positions, get_cam_rotation_matrices, increment_frame_count, get_frame_count
 from engine.camera import Camera
 from engine.config import config
+
+import numpy as np
+from OpenGL.GL import glReadPixels, GL_PACK_ALIGNMENT, GL_RGB, GL_UNSIGNED_BYTE
 
 cube, hdrbuffer, blurbuffer, lastPosX, lastPosY = None, None, None, None, None
 firstTime = True
 window_width, window_height = config['window_width'], config['window_height']
 camera = Camera(glm.vec3(0, 100, 0), pitch=-90, yaw=0, speed=40)
+
+def capture_image(filename, window):
+    # Get the size of the OpenGL window
+    width, height = glfw.get_framebuffer_size(window)
+
+    # Read the pixel data from the framebuffer
+    glPixelStorei(GL_PACK_ALIGNMENT, 1)
+    data = glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE)
+
+    # Convert the pixel data to a numpy array
+    image_np = np.frombuffer(data, dtype=np.uint8)
+    image_np = image_np.reshape((height, width, 3))
+
+    # Flip the image vertically (OpenGL's origin is bottom-left)
+    image_np = np.flipud(image_np)
+
+    # Save the image to the specified file
+    image_pil = Image.fromarray(image_np)
+    image_pil.save(filename)
+
+    return image_np
 
 def draw_objs(obj, program, perspective, light_pos, texture, normal, specular, depth):
     program.use()
@@ -186,6 +210,10 @@ def key_callback(window, key, scancode, action, mods):
         positions, colors = set_voxel_positions(config['world_width'], config['world_height'], config['world_width'])
         increment_frame_count()
         cube.set_multiple_positions(positions, colors)
+    if key == glfw.KEY_P and action == glfw.PRESS:
+        filename = f"Captured_image_{get_frame_count()}.png"
+        capture_image(filename, window)
+        print("Image saved as:", filename)
 
 def mouse_move(win, pos_x, pos_y):
     global firstTime, camera, lastPosX, lastPosY
