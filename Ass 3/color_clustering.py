@@ -11,7 +11,7 @@ from scipy.optimize import linear_sum_assignment
 import matplotlib.pyplot as plt
 
 
-def color_model(total_voxels, total_labels, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam, idx = 0, offline = False):
+def color_model(total_voxels, total_labels_in, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam, idx = 0, offline = False):
     
     '''
     Creates the color models for all the subjects for all the cameras
@@ -21,6 +21,8 @@ def color_model(total_voxels, total_labels, total_visible_voxels_per_cam, total_
 
     cam_color_models = [[], [], [], []]
     cam_rois = [[], [], [], []]
+
+    total_labels = total_labels_in.copy()
 
     # Loop over all cameras
     for n_camera in range(1, settings.NUM_CAMERAS+1):
@@ -69,7 +71,7 @@ def color_model(total_voxels, total_labels, total_visible_voxels_per_cam, total_
         else:
             labels = np.ravel(total_labels[idx])
         voxels = np.float32(total_voxels[idx])
-        color_models = []
+        color_models = [[], [], [], []]
         rois = []
         for label in range(settings.NUMBER_OF_CLUSTERS):
 
@@ -95,14 +97,18 @@ def color_model(total_voxels, total_labels, total_visible_voxels_per_cam, total_
             roi = np.array([total_visible_voxels_colors_per_cam[idx][n_camera-1][tuple(v.astype(int))] for v in voxels_person_roi if total_visible_voxels_per_cam[idx][n_camera-1][tuple(v.astype(int))]])
             roi = np.float32(roi)
 
-            # Create a GMM model
-            model = cv.ml.EM_create()
-            model.setClustersNumber(3)
+            if not len(roi) == 0:
+                if offline:
+                    print("Offline color model not created!")
+                # Create a GMM model
+                model = cv.ml.EM_create()
+                model.setClustersNumber(3)
 
-            # Create model per person (cluster)
-            model.trainEM(roi)
+                # Create model per person (cluster)
+                model.trainEM(roi)
 
-            color_models.append(model)
+                color_models[label] = model
+
             rois.append(roi)
 
         cam_color_models[n_camera-1] = color_models
@@ -226,20 +232,33 @@ def online_phase(total_labels, total_voxels, total_visible_voxels_colors_per_cam
     # Loop over all cameras
     for n_camera in range(1, settings.NUM_CAMERAS+1):
         cost_matrix = [] # TODO: Check if we need and where
+        max_log_likelihood = 0.0
         for roi in cam_rois_online[n_camera - 1]:
             cost_row = []
             for label_offline, color_model_offline in enumerate(cam_color_models_offline[n_camera-1]):
                 
-                log_likelihood = 0.0
-                for color in roi:
-                    (single_log, _), _ = color_model_offline.predict2(color)
-                    log_likelihood += single_log
+                if len(roi) == 0:
+                    # Append logarithm of 0 to the cost row
+                    cost_row.append(-np.log(0)) # TODO: infinity is not accepted by linear sum assignment
+                else:
+                    log_likelihood = 0.0
+                    for color in roi:
+                        (single_log, _), _ = color_model_offline.predict2(color)
+                        log_likelihood += single_log
 
-                cost_row.append(-log_likelihood)
+                    cost_row.append(-(log_likelihood/len(roi)))
+                    if -(log_likelihood/len(roi)) > max_log_likelihood:
+                        max_log_likelihood = -(log_likelihood/len(roi))
                     
             # Add the complete row to the cost matrix  
             cost_matrix.append(cost_row)
 
+        # If a value is "inf" set it to "10*max_log_likelihood"
+        for i in range(len(cost_matrix)):
+            for j in range(len(cost_matrix[i])):
+                if cost_matrix[i][j] == -np.log(0):
+                    cost_matrix[i][j] = 10*max_log_likelihood
+        
         # Convert the cost matrix to a numpy array
         cost_matrix = np.array(cost_matrix)
 

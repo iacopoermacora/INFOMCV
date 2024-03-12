@@ -157,6 +157,7 @@ def increment_frame_count():
     return frame_cnt < min(settings.MAX_NUMBER_OF_FRAMES + len(settings.OFFLINE_IDX), settings.NUMBER_OF_FRAMES_TO_ANALYSE + len(settings.OFFLINE_IDX))
 
 def get_frame_count():
+    
     return frame_cnt
 
 def create_lookup_table():
