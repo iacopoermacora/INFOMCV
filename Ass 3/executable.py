@@ -6,7 +6,7 @@ from engine.buffer.texture import *
 from engine.buffer.hdrbuffer import HDRBuffer
 from engine.buffer.blurbuffer import BlurBuffer
 from engine.effect.bloom import Bloom
-from assignment import set_voxel_positions, generate_grid, get_cam_positions, get_cam_rotation_matrices, increment_frame_count, get_frame_count
+from assignment import set_voxel_positions, generate_grid, get_cam_positions, get_cam_rotation_matrices, increment_frame_count, decrement_frame_count, get_frame_count, draw_centers_graph
 from engine.camera import Camera
 from engine.config import config
 
@@ -203,17 +203,24 @@ def resize_callback(window, w, h):
 
 
 def key_callback(window, key, scancode, action, mods):
+    global cube
     if key == glfw.KEY_ESCAPE and action == glfw.PRESS:
         glfw.set_window_should_close(window, glfw.TRUE)
     if key == glfw.KEY_G and action == glfw.PRESS:
-        global cube
+        if not increment_frame_count(): # NOTE: global cube was before this line
+            draw_centers_graph()
         positions, colors = set_voxel_positions(config['world_width'], config['world_height'], config['world_width'])
-        increment_frame_count()
+        cube.set_multiple_positions(positions, colors)
+    if key == glfw.KEY_F and action == glfw.PRESS:
+        decrement_frame_count()
+        positions, colors = set_voxel_positions(config['world_width'], config['world_height'], config['world_width'])
         cube.set_multiple_positions(positions, colors)
     if key == glfw.KEY_P and action == glfw.PRESS:
         filename = f"Captured_image_{get_frame_count()}.png"
         capture_image(filename, window)
         print("Image saved as:", filename)
+    if key == glfw.KEY_R and action == glfw.PRESS:
+        draw_centers_graph()
 
 def mouse_move(win, pos_x, pos_y):
     global firstTime, camera, lastPosX, lastPosY

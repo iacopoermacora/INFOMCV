@@ -15,8 +15,12 @@ from skimage import measure
 import color_clustering as col_cl
 
 block_size = settings.BLOCK_SIZE
-frame_cnt = 0
-flag_color = True # NOTE: To remove, just for testing purposes
+frame_cnt = -1
+if settings.VISUALIZE_REAL_COLORS == True:
+    visualize_real = True
+else:
+    visualize_real = False
+final_centers = []
 
 def generate_grid(width, depth):
     # Generates the floor grid locations
@@ -46,6 +50,8 @@ def set_voxel_positions(width, height, depth):
     global total_labels
     global total_voxels
 
+    global cam_color_models_offline
+
     data, colors = [], []
     # Create a lookup table to store the voxel coordinates and the corresponding pixel coordinates for each camera
 
@@ -53,9 +59,9 @@ def set_voxel_positions(width, height, depth):
 
     data = total_voxels[idx]
 
-    final_labels = col_cl.online_phase(total_labels, total_voxels, total_visible_voxels_colors_per_cam, total_visible_voxels_per_cam, idx)
+    final_labels = col_cl.online_phase(total_labels, total_voxels, total_visible_voxels_colors_per_cam, total_visible_voxels_per_cam, cam_color_models_offline, idx)
 
-    if flag_color == True:
+    if visualize_real == True:
         data = []
         # Create a counter to store the number of visible voxels in all cameras
         visible_all_cameras = 0
@@ -71,8 +77,10 @@ def set_voxel_positions(width, height, depth):
                             colors.append(total_voxels_color[idx][x, z, y])
     else:
         # Convert the labels to the new labels and assign them colors
+        new_centres = [[], [], [], []]
         for label in total_labels[idx]:
             label = final_labels[label]
+            new_centres[label[0]] = total_centers[idx][final_labels[label[0]]]
             if label == 0:
                 colors.append([0, 0, 225])
             if label == 1:
@@ -81,7 +89,7 @@ def set_voxel_positions(width, height, depth):
                 colors.append([255, 0, 225])
             if label == 3:
                 colors.append([255, 0, 0])
-
+        final_centers.append(new_centres)
     '''# Create a mesh of the voxels
     if settings.CREATE_MESH:
         generate_mesh(total_voxel_volume[idx], idx)
@@ -148,11 +156,28 @@ def increment_frame_count():
     Increments the frame count
     '''
     global frame_cnt
-    global flag_color # NOTE: To remove, just for testing purposes
-
-    if flag_color == False: # NOTE: To remove, just for testing purposes
+    global visualize_real # NOTE: To remove, just for testing purposes
+    if settings.VISUALIZE_REAL_COLORS == True:
+        if visualize_real == False: # NOTE: To remove, just for testing purposes
+            frame_cnt += 1
+        visualize_real = not visualize_real # NOTE: To remove, just for testing purposes
+    else:
         frame_cnt += 1
-    flag_color = not flag_color # NOTE: To remove, just for testing purposes
+
+    return frame_cnt < min(settings.MAX_NUMBER_OF_FRAMES + len(settings.OFFLINE_IDX), settings.NUMBER_OF_FRAMES_TO_ANALYSE + len(settings.OFFLINE_IDX))
+
+def decrement_frame_count():
+    '''
+    Decrements the frame count
+    '''
+    global frame_cnt
+    global visualize_real # NOTE: To remove, just for testing purposes
+    if settings.VISUALIZE_REAL_COLORS == True:
+        if visualize_real == True: # NOTE: To remove, just for testing purposes
+            frame_cnt -= 1
+        visualize_real = not visualize_real # NOTE: To remove, just for testing purposes
+    else:
+        frame_cnt -= 1
 
     return frame_cnt < min(settings.MAX_NUMBER_OF_FRAMES + len(settings.OFFLINE_IDX), settings.NUMBER_OF_FRAMES_TO_ANALYSE + len(settings.OFFLINE_IDX))
 
@@ -716,6 +741,52 @@ def assign_colors(total_voxel_volume, total_voxel_colors_per_cam, total_voxel_HS
 
     return total_voxels_color, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam
 
+def remove_ghost_voxels(total_labels, total_centers, total_voxels, total_voxel_volume_cleaned, total_voxels_color, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam):
+
+    if os.path.exists(f'remove_ghost.pkl'):
+        with open(f'remove_ghost.pkl', 'rb') as f:
+            return pickle.load(f)
+        
+    print("\n\nSTEP 5 - Removing Ghost Voxels")
+    new_total_labels = []
+    new_total_centers = []
+    new_total_voxels = []
+    new_total_voxel_volume_cleaned = []
+    
+    for idx, (frame_voxels, frame_labels) in tqdm(enumerate(zip(total_voxels, total_labels)), desc = "Removing Ghost Voxels - Frame Iteration"):
+        active_voxels = []
+        count_active = np.zeros(settings.NUMBER_OF_CLUSTERS)
+        for label_check in range(settings.NUMBER_OF_CLUSTERS):
+            for voxel, label in zip(frame_voxels, frame_labels):
+                # Check if the voxel is visible from at least one camera
+                if label == label_check:
+                    if total_visible_voxels_per_cam[idx][0][int((voxel[0]+settings.WIDTH/2)/block_size)][int((voxel[2]+settings.DEPTH/2)/block_size)][int(voxel[1]/block_size)] or total_visible_voxels_per_cam[idx][1][int((voxel[0]+settings.WIDTH/2)/block_size)][int((voxel[2]+settings.DEPTH/2)/block_size)][int(voxel[1]/block_size)] or total_visible_voxels_per_cam[idx][2][int((voxel[0]+settings.WIDTH/2)/block_size)][int((voxel[2]+settings.DEPTH/2)/block_size)][int(voxel[1]/block_size)] or total_visible_voxels_per_cam[idx][3][int((voxel[0]+settings.WIDTH/2)/block_size)][int((voxel[2]+settings.DEPTH/2)/block_size)][int(voxel[1]/block_size)]:
+                        count_active[label_check] += 1
+        sorted_count = sorted(count_active)
+        if sorted_count[0] < sorted_count[1]*0.1:
+            print("Ghost cluster of voxels found in frame ", idx)
+            label_not_keep = np.where(count_active == sorted_count[0])[0][0]
+            active_voxels.extend([voxel for voxel, label in zip(frame_voxels, frame_labels) if label != label_not_keep])
+        else:
+            active_voxels = frame_voxels.copy()
+
+        labels, centers, voxels = col_cl.cluster_voxels(active_voxels, remove_outliers = False)
+
+        voxel_volume_cleaned = np.zeros((settings.WIDTH, settings.DEPTH, settings.HEIGHT), dtype=bool)
+        for voxel in voxels:
+            voxel_volume_cleaned[int((voxel[0]+settings.WIDTH/2)/block_size)][int((voxel[2]+settings.DEPTH/2)/block_size)][int(voxel[1]/block_size)] = True
+
+        new_total_labels.append(labels)
+        new_total_centers.append(centers)
+        new_total_voxels.append(voxels)
+        new_total_voxel_volume_cleaned.append(voxel_volume_cleaned)
+    
+    with open(f'remove_ghost.pkl', 'wb') as f:
+        data_to_save = (new_total_labels, new_total_centers, new_total_voxels, new_total_voxel_volume_cleaned)
+        pickle.dump(data_to_save, f, protocol=4)
+
+    return new_total_labels, new_total_centers, new_total_voxels, new_total_voxel_volume_cleaned
+
 def create_all_models():
     lookup_table = create_lookup_table()
 
@@ -725,12 +796,11 @@ def create_all_models():
 
     print("\nVoxel model created")
 
-    print("\n\nSTEP 3 - New Voxels Projection")
     if os.path.exists(f'post_clustering.pkl'):
         with open(f'post_clustering.pkl', 'rb') as f:
             total_labels, total_centers, total_voxels, total_voxel_volume_cleaned = pickle.load(f)
     else:
-
+        print("\n\nSTEP 3 - New Voxels Projection")
         total_labels = []
         total_centers = []
         total_voxels = []
@@ -774,6 +844,8 @@ def create_all_models():
 
     print("\nColors assigned")
 
+    total_labels, total_centers, total_voxels, total_voxel_volume_cleaned = remove_ghost_voxels(total_labels, total_centers, total_voxels, total_voxel_volume_cleaned, total_voxels_color, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam)
+
     print("\n\nAll Frames are ready to be displayed: press 'g' to visualise the next frame")
 
     return total_voxels_color, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam, total_voxel_volume_cleaned, total_centers, total_labels, total_voxels
@@ -789,6 +861,32 @@ def get_lowest_frame_number():
         cap.release()
 
     return lowest_frame_number
+
+def draw_centers_graph():
+    # Extract x and y coordinates from each array
+    x_points = [[], [], [], []]
+    y_points = [[], [], [], []]
+    colors = ['r', 'g', 'b', 'c']  # Colors for each position in the array
+
+    for arr in final_centers:
+        for i, point in enumerate(arr):
+            x_points[i].append(point[0])
+            y_points[i].append(point[1])
+
+    # Plot the points
+    plt.xlabel('X-axis')
+    plt.ylabel('Y-axis')
+    plt.title('Points Plot')
+    plt.legend()
+    plt.grid(True)
+    for i in range(4):
+        plt.plot(x_points[i], y_points[i], color=colors[i], label=f'Position {i+1}')
+    # Save the plot as an image file
+    plt.savefig('centers_graph.png')
+
+    # Close the plot
+    plt.close()
+
 # Offline preparatory part
 
 # Get camera intrinsics and extrinsics, create the background model and the segmented video
@@ -807,4 +905,4 @@ for camera_number in range(1, settings.NUM_CAMERAS+1):
     optimal_thresholds = manual_segmentation_comparison(camera_number, first_video_frame, background_model_path, manual_mask_path, steps=[50, 10, 5, 1])
     create_segmented_video(video_path, background_model_path, optimal_thresholds)
 total_voxels_color, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam, total_voxel_volume_cleaned, total_centers, total_labels, total_voxels = create_all_models()
-    
+cam_color_models_offline, _ = col_cl.color_model(total_voxels, total_labels, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam, offline = True)

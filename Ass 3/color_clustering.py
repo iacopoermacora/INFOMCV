@@ -28,7 +28,6 @@ def color_model(total_voxels, total_labels_in, total_visible_voxels_per_cam, tot
     for n_camera in range(1, settings.NUM_CAMERAS+1):
         if offline:
             idx = n_camera - 1
-            print(f"idx: {idx}")
             for label in total_labels[idx]:
                 if n_camera == 1:
                     if label == 0:
@@ -97,9 +96,7 @@ def color_model(total_voxels, total_labels_in, total_visible_voxels_per_cam, tot
             roi = np.array([total_visible_voxels_colors_per_cam[idx][n_camera-1][tuple(v.astype(int))] for v in voxels_person_roi if total_visible_voxels_per_cam[idx][n_camera-1][tuple(v.astype(int))]])
             roi = np.float32(roi)
 
-            if not len(roi) == 0:
-                if offline:
-                    print("Offline color model not created!")
+            if len(roi) >= 3:
                 # Create a GMM model
                 model = cv.ml.EM_create()
                 model.setClustersNumber(3)
@@ -169,7 +166,7 @@ def remove_outliers_and_ghosts(labels_def, centers, voxels, voxels_no_height):
 
     return labels_def_no_outliers, centers_no_outliers, voxels_no_outliers
 
-def cluster_voxels(voxels):
+def cluster_voxels(voxels, remove_outliers = True):
     ''''
     Creates the cluster of voxels for each subject
     '''
@@ -181,6 +178,9 @@ def cluster_voxels(voxels):
 
     _, labels_def, centers = cv.kmeans(voxels_no_height, 4, None, criteria, 20, cv.KMEANS_RANDOM_CENTERS) # 4 is number of clusters, 20 is number of attempts, centres randomly chosen
 
+    if not remove_outliers:
+        return labels_def, centers, voxels
+    
     # TODO: IMPLEMENT REMOVAL OF OUTLIERS AND GHOSTS HERE
     labels_def_no_outliers, centers_no_outliers, voxels_no_outliers = remove_outliers_and_ghosts(labels_def, centers, voxels, voxels_no_height)
     # TODO: change the code a bit (variables, order and stuff)
@@ -214,7 +214,7 @@ def majority_labeling(all_predictions, camera_preference = None):
 
     return final_labels
 
-def online_phase(total_labels, total_voxels, total_visible_voxels_colors_per_cam, total_visible_voxels_per_cam, idx):
+def online_phase(total_labels, total_voxels, total_visible_voxels_colors_per_cam, total_visible_voxels_per_cam, cam_color_models_offline, idx):
     """
     Contains a comparison of the offline color models with the online ones, a
     label matching to obtain the final labelling of each person, and initiates 2D path tracking on the floor.
@@ -224,7 +224,6 @@ def online_phase(total_labels, total_voxels, total_visible_voxels_colors_per_cam
     # I'll try to figure this out but i need to think about it a bit.
     # POSSIBLE SOLUTION: Because we know every frame (in settings.OFFLINE_IDX there is the idx of the frame) and the centres of the clustering, 
     # we could map for each camera, the label to the cluster we want, so that we make sure that for all cameras, the models are created for the guys we want.
-    cam_color_models_offline, _ = color_model(total_voxels, total_labels, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam, offline = True)
     _, cam_rois_online = color_model(total_voxels, total_labels, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam, idx = idx)
     
     # Total cost matrix initiation, shaped number of clusters x number of clusters
@@ -246,9 +245,9 @@ def online_phase(total_labels, total_voxels, total_visible_voxels_colors_per_cam
                         (single_log, _), _ = color_model_offline.predict2(color)
                         log_likelihood += single_log
 
-                    cost_row.append(-(log_likelihood/len(roi)))
-                    if -(log_likelihood/len(roi)) > max_log_likelihood:
-                        max_log_likelihood = -(log_likelihood/len(roi))
+                    cost_row.append(-(log_likelihood)) # NOTE: Removed normalisation (even below) /len(roi)
+                    if -(log_likelihood) > max_log_likelihood:
+                        max_log_likelihood = -(log_likelihood)
                     
             # Add the complete row to the cost matrix  
             cost_matrix.append(cost_row)
