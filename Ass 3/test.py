@@ -1,14 +1,5 @@
-import numpy as np
-import cv2 as cv
+camera = Camera(glm.vec3(0, 270, 0), pitch=-90, yaw=0, speed=40)
 
-video_path_color = f'data/cam1/video.avi'
-cap_color = cv.VideoCapture(video_path_color)
-cap_color.set(cv.CAP_PROP_POS_FRAMES, 0)
-_, frame_color = cap_color.read()
-# Convert frame to HSV
-frame_hsv = cv.cvtColor(frame_color, cv.COLOR_BGR2HSV)
-print(frame_hsv[30, 45])
-print(frame_color[30, 45])
+camera = Camera(glm.vec3(135, 128, 70), pitch=-40, yaw=210, speed=40)
 
-
-# Frames to analyse:  [660, 0, 660, 520, 0, 25, 50, 75, 100, 125, 150, 175, 200, 225, 250, 275, 300, 325, 350, 375, 400, 425, 450, 475, 500, 525, 550, 575, 600, 625, 650, 675, 700, 725, 750, 775, 800, 825, 850, 875, 900, 925, 950, 975, 1000, 1025, 1050, 1075, 1100, 1125, 1150, 1175, 1200, 1225, 1250, 1275, 1300, 1325, 1350, 1375, 1400, 1425, 1450, 1475, 1500, 1525, 1550, 1575, 1600, 1625, 1650, 1675, 1700, 1725, 1750, 1775, 1800, 1825, 1850, 1875, 1900, 1925, 1950, 1975, 2000, 2025, 2050, 2075, 2100, 2125, 2150, 2175, 2200, 2225, 2250, 2275, 2300, 2325, 2350, 2375, 2400, 2425, 2450, 2475, 2500, 2525, 2550, 2575, 2600, 2625, 2650, 2675, 2700]
+camera = Camera(glm.vec3(135, 128, -70), pitch=-40, yaw=150, speed=40)

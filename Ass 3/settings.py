@@ -53,7 +53,7 @@ BLOCK_SIZE = 1
 # Number of frames to analyse per second
 NUMBER_OF_FRAMES_TO_ANALYSE = 105 # TODO: Set to 100
 # Frame of the video to display in the 3D visualiser
-STARTING_FRAME_NUMBER = 50 # NOTE: Starting frame number out of the number of frames to analyse JUST FOR TEST, OTHERWISE SET TO 0
+STARTING_FRAME_NUMBER = 0 # NOTE: Starting frame number out of the number of frames to analyse JUST FOR TEST, OTHERWISE SET TO 0
 # Maximum number of frames to analyse
 MAX_NUMBER_OF_FRAMES = 105 # NOTE: Maximum number of frames to analyse JUST FOR TEST, OTHERWISE SET TO INFINITY
 # Index of the frame for offline color model

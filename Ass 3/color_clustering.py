@@ -113,22 +113,6 @@ def color_model(total_voxels, total_labels_in, total_visible_voxels_per_cam, tot
 
     return cam_color_models, cam_rois # color_models is a list of n_camera lists of n_people color models
 
-'''def match_center(centers, centers_no_outliers):
-    
-    Match the centers of the clusters with the centers of the clusters without outliers
-    
-    
-    # Calculate all pairwise distances between original and filtered centers
-    distances = cdist(centers, centers_no_outliers)
-
-    # Find the closest new center for each original center
-    min_indices = np.argmin(distances, axis=1)
-
-    # Order the centers_filtered based on the match with original centers
-    centers_no_outliers_matched = centers_no_outliers[min_indices]
-
-    return centers_no_outliers_matched'''
-
 def remove_outliers_and_ghosts(labels_def, centers, voxels, voxels_no_height):
     '''
     Remove the outliers and the ghost voxels to improve the clustering
@@ -186,33 +170,6 @@ def cluster_voxels(voxels, remove_outliers = True):
     # TODO: change the code a bit (variables, order and stuff)
 
     return labels_def_no_outliers, centers_no_outliers, voxels_no_outliers
-
-def majority_labeling(all_predictions, camera_preference = None):
-    '''
-    Aggregate predictions from all cameras and determine the final label for each cluster
-    based on a majority vote. In case of ties, preferences 
-    '''
-    # Initialize a structure to hold vote counts for each cluster's label
-    vote_counts = [{} for _ in range(max(map(len, all_predictions)))]  # Create a list of dictionaries, one for each cluster
-    
-
-    for camera_index, predictions in enumerate(all_predictions): 
-        for cluster_index, label in enumerate(predictions):
-            if label not in vote_counts[cluster_index]:
-                # Initialize the vote count for this label
-                vote_counts[cluster_index][label] = 0 
-            # Increment the vote count for this label; consider camera preference if specified
-            vote_increment = 1 if camera_preference is None else camera_preference[camera_index]
-            vote_counts[cluster_index][label] += vote_increment
-
-    # Determine the final label for each cluster based on majority vote
-    final_labels = []
-    for cluster_votes in vote_counts:
-        # Sort labels by vote count (and by camera preference in case of a tie)
-        sorted_votes = sorted(cluster_votes.items(), key=lambda item: (-item[1], camera_preference.index(item[0]) if camera_preference else 0))
-        final_labels.append(sorted_votes[0][0] if sorted_votes else None)
-
-    return final_labels
 
 def online_phase(total_labels, total_voxels, total_visible_voxels_colors_per_cam, total_visible_voxels_per_cam, cam_color_models_offline, idx):
     """

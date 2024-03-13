@@ -42,6 +42,7 @@ def set_voxel_positions(width, height, depth):
 
     :return: data, colors
     '''
+    i = 0
     global total_voxels_color
     global total_visible_voxels_per_cam
     global total_visible_voxels_colors_per_cam
@@ -182,8 +183,10 @@ def decrement_frame_count():
     return frame_cnt < min(settings.MAX_NUMBER_OF_FRAMES + len(settings.OFFLINE_IDX), settings.NUMBER_OF_FRAMES_TO_ANALYSE + len(settings.OFFLINE_IDX))
 
 def get_frame_count():
-    
-    return frame_cnt
+    if frame_cnt < len(settings.OFFLINE_IDX):
+        return -(frame_cnt+1)
+    else:
+        return frame_cnt - len(settings.OFFLINE_IDX) + settings.STARTING_FRAME_NUMBER
 
 def create_lookup_table():
     '''
@@ -868,10 +871,20 @@ def draw_centers_graph():
     y_points = [[], [], [], []]
     colors = ['r', 'g', 'b', 'c']  # Colors for each position in the array
 
+    if os.path.exists(f'centers_graph.pkl'):
+        with open(f'centers_graph.pkl', 'rb') as f:
+            x_points, y_points = pickle.load(f)
+
     for arr in final_centers:
         for i, point in enumerate(arr):
-            x_points[i].append(point[0])
-            y_points[i].append(point[1])
+            if i >= settings.NUM_CAMERAS:
+                x_points[i].append(point[0])
+                y_points[i].append(point[1])
+    
+    if not os.path.exists(f'centers_graph.pkl'):
+        with open(f'centers_graph.pkl', 'wb') as f:
+            data_to_save = (x_points, y_points)
+            pickle.dump(data_to_save, f, protocol=4)
 
     # Plot the points
     plt.xlabel('X-axis')
@@ -889,7 +902,7 @@ def draw_centers_graph():
 
 # Offline preparatory part
 
-# Get camera intrinsics and extrinsics, create the background model and the segmented video
+'''# Get camera intrinsics and extrinsics, create the background model and the segmented video
 for camera_number in range(1, settings.NUM_CAMERAS+1):
     print(f"\n\nProcessing camera {camera_number}")
     # Analise the video and gets the camera intrinsics and extrinsics
@@ -905,4 +918,4 @@ for camera_number in range(1, settings.NUM_CAMERAS+1):
     optimal_thresholds = manual_segmentation_comparison(camera_number, first_video_frame, background_model_path, manual_mask_path, steps=[50, 10, 5, 1])
     create_segmented_video(video_path, background_model_path, optimal_thresholds)
 total_voxels_color, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam, total_voxel_volume_cleaned, total_centers, total_labels, total_voxels = create_all_models()
-cam_color_models_offline, _ = col_cl.color_model(total_voxels, total_labels, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam, offline = True)
+cam_color_models_offline, _ = col_cl.color_model(total_voxels, total_labels, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam, offline = True)'''
