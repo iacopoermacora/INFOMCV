@@ -53,9 +53,9 @@ BLOCK_SIZE = 1
 # Number of frames to analyse per second
 NUMBER_OF_FRAMES_TO_ANALYSE = 105 # TODO: Set to 100
 # Frame of the video to display in the 3D visualiser
-STARTING_FRAME_NUMBER = 0 # NOTE: Starting frame number out of the number of frames to analyse JUST FOR TEST, OTHERWISE SET TO 0
+STARTING_FRAME_NUMBER = 50 # NOTE: Starting frame number out of the number of frames to analyse JUST FOR TEST, OTHERWISE SET TO 0
 # Maximum number of frames to analyse
-MAX_NUMBER_OF_FRAMES = 105 # NOTE: Maximum number of frames to analyse JUST FOR TEST, OTHERWISE SET TO INFINITY
+MAX_NUMBER_OF_FRAMES = 55 # NOTE: Maximum number of frames to analyse JUST FOR TEST, OTHERWISE SET TO INFINITY
 # Index of the frame for offline color model
 OFFLINE_IDX = [660, 0, 660, 520] # FIND IDEAL FRAMES
 # True if you want to visualize also the real colors of the voxels, False if you want to visualize only the artificially colored clusters

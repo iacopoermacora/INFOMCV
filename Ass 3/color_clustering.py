@@ -7,24 +7,32 @@ import settings as settings
 import cv2 as cv
 from scipy.spatial.distance import cdist
 from scipy.optimize import linear_sum_assignment
+import pickle
+import os
 
 import matplotlib.pyplot as plt
 
+block_size = settings.BLOCK_SIZE
 
 def color_model(total_voxels, total_labels_in, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam, idx = 0, offline = False):
     
     '''
     Creates the color models for all the subjects for all the cameras
+
+    :param total_voxels: 3D coordinates of the voxels
+    :param total_labels_in: labels of the voxels
+    :param total_visible_voxels_per_cam: visible voxels for each camera
+    :param total_visible_voxels_colors_per_cam: visible voxels colors for each camera
+    :param idx: index of the frame for online color model
+
+    :return: cam_color_models
     '''
-    
-    # TODO: change the code to other names and shape it differently
 
     cam_color_models = [[], [], [], []]
     cam_rois = [[], [], [], []]
 
     total_labels = total_labels_in.copy()
 
-    # Loop over all cameras
     for n_camera in range(1, settings.NUM_CAMERAS+1):
         if offline:
             idx = n_camera - 1
@@ -74,34 +82,34 @@ def color_model(total_voxels, total_labels_in, total_visible_voxels_per_cam, tot
         rois = []
         for label in range(settings.NUMBER_OF_CLUSTERS):
 
-            voxels_person = voxels[labels == label]  # save voxel if the label is same TODO: Not sure of the shape of stuff happening here
-            # Reshape voxels_person to x, y, z coordinates (and not voxel shaped)
-            voxels_person[:, 0] = (voxels_person[:, 0] + settings.WIDTH/2) / settings.BLOCK_SIZE
-            voxels_person[:, 1] = voxels_person[:, 1] / settings.BLOCK_SIZE
-            voxels_person[:, 2] = (voxels_person[:, 2] + settings.DEPTH/2) / settings.BLOCK_SIZE
+            voxels_subject = voxels[labels == label]
+            # Reshape voxels_subject to x, y, z coordinates (and not voxel shaped)
+            voxels_subject[:, 0] = (voxels_subject[:, 0] + settings.WIDTH/2) / settings.BLOCK_SIZE
+            voxels_subject[:, 1] = voxels_subject[:, 1] / settings.BLOCK_SIZE
+            voxels_subject[:, 2] = (voxels_subject[:, 2] + settings.DEPTH/2) / settings.BLOCK_SIZE
 
-            # Take only above the belt and cut the head
-            tshirt = np.mean(voxels_person[:, 1], dtype=np.int_)
-            voxel_roi = voxels_person[:, 1] > tshirt
-            voxels_person_roi = voxels_person[voxel_roi]
+            # Take into consideration only the voxels that are at the same height of the tshirt
+            legs_level = np.mean(voxels_subject[:, 1], dtype=np.int_)
+            voxels_subject_roi = voxels_subject[voxels_subject[:, 1] > legs_level]
+            head_level = np.max(voxels_subject_roi[:, 1])
+            voxels_subject_roi = voxels_subject_roi[voxels_subject_roi[:, 1] < 3 / 4 * head_level]
 
-            head = np.max(voxels_person_roi[:, 1])
-            voxel_roi = voxels_person_roi[:, 1] < 3 / 4 * head
-            voxels_person_roi = voxels_person_roi[voxel_roi]
-
-            # Swap y and z in voxels_person_roi
-            voxels_person_roi[:, 1], voxels_person_roi[:, 2] = voxels_person_roi[:, 2], voxels_person_roi[:, 1].copy()
+            # Swap y and z in voxels_subject_roi
+            voxels_subject_roi[:, 1], voxels_subject_roi[:, 2] = voxels_subject_roi[:, 2], voxels_subject_roi[:, 1].copy()
 
             # Only take the visible voxels for the roi
-            roi = np.array([total_visible_voxels_colors_per_cam[idx][n_camera-1][tuple(v.astype(int))] for v in voxels_person_roi if total_visible_voxels_per_cam[idx][n_camera-1][tuple(v.astype(int))]])
+            roi = np.array([total_visible_voxels_colors_per_cam[idx][n_camera-1][tuple(v.astype(int))] for v in voxels_subject_roi if total_visible_voxels_per_cam[idx][n_camera-1][tuple(v.astype(int))]])
             roi = np.float32(roi)
 
+            # Only create the model if there are at least 3 voxels with colors
             if len(roi) >= 3:
-                # Create a GMM model
+                # Create the color model
                 model = cv.ml.EM_create()
+
+                # Set the number of clusters
                 model.setClustersNumber(3)
 
-                # Create model per person (cluster)
+                # Train the color model
                 model.trainEM(roi)
 
                 color_models[label] = model
@@ -111,12 +119,20 @@ def color_model(total_voxels, total_labels_in, total_visible_voxels_per_cam, tot
         cam_color_models[n_camera-1] = color_models
         cam_rois[n_camera-1] = rois
 
-    return cam_color_models, cam_rois # color_models is a list of n_camera lists of n_people color models
+    return cam_color_models, cam_rois
 
-def remove_outliers_and_ghosts(labels_def, centers, voxels, voxels_no_height):
+def remove_outliers(labels_def, centers, voxels, voxels_no_height):
     '''
     Remove the outliers and the ghost voxels to improve the clustering
+
+    :param labels_def: labels of the voxels
+    :param centers: centers of the clusters
+    :param voxels: 3D coordinates of the voxels
+    :param voxels_no_height: 2D coordinates of the voxels
+
+    :return: labels_def_no_outliers, centers_no_outliers, voxels_no_outliers
     '''
+    # Calculate the distance of each voxel to the center of its cluster
     distance = []
     for i in range(len(voxels_no_height)):
         center = centers[labels_def[i]]
@@ -125,91 +141,154 @@ def remove_outliers_and_ghosts(labels_def, centers, voxels, voxels_no_height):
     # Calculate the 0.05 percentile of the distances
     threshold = np.percentile(distance, 90)
 
+    # Remove the outliers based on the threshold
     no_outliers_mask = distance < threshold
     voxels_no_outliers = np.float32(voxels)[no_outliers_mask]
     voxels_no_outliers_no_height = voxels_no_height[no_outliers_mask]
-    # labels_def_no_outliers = labels_def[no_outliers_mask]
-
-    # Remove the ghost voxels
-    '''    for i in range(len(voxels_no_outliers)):
-        for j in range(i+1, len(voxels_no_outliers)):
-            if labels_def_no_outliers[i] == labels_def_no_outliers[j]:
-                if np.linalg.norm(voxels_no_outliers[i] - voxels_no_outliers[j]) < 10:
-                    labels_def_no_outliers[j] = -1'''
 
     # Cluster voxels in 3d space based on x/y information
     criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 10, 0.1)
 
+    # Seed to make the results reproducible
     np.random.seed(0)
 
+    # Kmeans clustering of the voxels
     _, labels_def_no_outliers, centers_no_outliers = cv.kmeans(voxels_no_outliers_no_height, 4, None, criteria, 20, cv.KMEANS_RANDOM_CENTERS)
-
-    # centers_no_outliers_matched = match_center(centers, centers_no_outliers)
 
     voxels_no_outliers = [[float(row[0]), float(row[1]), float(row[2])] for row in voxels_no_outliers]
 
     return labels_def_no_outliers, centers_no_outliers, voxels_no_outliers
 
+def remove_ghost_voxels(total_labels, total_voxels, total_visible_voxels_per_cam):
+    '''
+    Removes the ghost voxels
+
+    :param total_labels: The labels of the voxels
+    :param total_voxels: The voxel coordinates
+    :param total_visible_voxels_per_cam: The visible voxels per camera
+
+    :return: new_total_labels, new_total_centers, new_total_voxels, new_total_voxel_volume_cleaned
+    '''
+
+
+    if os.path.exists(f'remove_ghost.pkl'):
+        with open(f'remove_ghost.pkl', 'rb') as f:
+            return pickle.load(f)
+        
+    print("\n\nSTEP 5 - Removing Ghost Voxels")
+    new_total_labels = []
+    new_total_centers = []
+    new_total_voxels = []
+    new_total_voxel_volume_cleaned = []
+    
+    for idx, (frame_voxels, frame_labels) in tqdm(enumerate(zip(total_voxels, total_labels)), desc = "Removing Ghost Voxels - Frame Iteration"):
+        active_voxels = []
+        count_active = np.zeros(settings.NUMBER_OF_CLUSTERS)
+        for label_check in range(settings.NUMBER_OF_CLUSTERS):
+            for voxel, label in zip(frame_voxels, frame_labels):
+                # Check if the voxel is visible from at least one camera
+                if label == label_check:
+                    if total_visible_voxels_per_cam[idx][0][int((voxel[0]+settings.WIDTH/2)/block_size)][int((voxel[2]+settings.DEPTH/2)/block_size)][int(voxel[1]/block_size)] or total_visible_voxels_per_cam[idx][1][int((voxel[0]+settings.WIDTH/2)/block_size)][int((voxel[2]+settings.DEPTH/2)/block_size)][int(voxel[1]/block_size)] or total_visible_voxels_per_cam[idx][2][int((voxel[0]+settings.WIDTH/2)/block_size)][int((voxel[2]+settings.DEPTH/2)/block_size)][int(voxel[1]/block_size)] or total_visible_voxels_per_cam[idx][3][int((voxel[0]+settings.WIDTH/2)/block_size)][int((voxel[2]+settings.DEPTH/2)/block_size)][int(voxel[1]/block_size)]:
+                        count_active[label_check] += 1
+        sorted_count = sorted(count_active)
+        if sorted_count[0] < sorted_count[1]*0.1:
+            print("Ghost cluster of voxels found in frame ", idx)
+            label_not_keep = np.where(count_active == sorted_count[0])[0][0]
+            active_voxels.extend([voxel for voxel, label in zip(frame_voxels, frame_labels) if label != label_not_keep])
+        else:
+            active_voxels = frame_voxels.copy()
+
+        labels, centers, voxels = cluster_voxels(active_voxels, remove_outliers = False)
+
+        voxel_volume_cleaned = np.zeros((settings.WIDTH, settings.DEPTH, settings.HEIGHT), dtype=bool)
+        for voxel in voxels:
+            voxel_volume_cleaned[int((voxel[0]+settings.WIDTH/2)/block_size)][int((voxel[2]+settings.DEPTH/2)/block_size)][int(voxel[1]/block_size)] = True
+
+        new_total_labels.append(labels)
+        new_total_centers.append(centers)
+        new_total_voxels.append(voxels)
+        new_total_voxel_volume_cleaned.append(voxel_volume_cleaned)
+    
+    with open(f'remove_ghost.pkl', 'wb') as f:
+        data_to_save = (new_total_labels, new_total_centers, new_total_voxels, new_total_voxel_volume_cleaned)
+        pickle.dump(data_to_save, f, protocol=4)
+
+    return new_total_labels, new_total_centers, new_total_voxels, new_total_voxel_volume_cleaned
+
 def cluster_voxels(voxels, remove_outliers = True):
     ''''
     Creates the cluster of voxels for each subject
     '''
+
+    # Kmeans clustering of the voxels
     criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 10, 0.1) # number of iterations, epsilon value (either when epsilon or number of iteration is reached)
     
+    # Cluster voxels in 3d space based on x/y information
     voxels_no_height = np.float32(voxels)[:, [0, 2]] # Keep first and third column
-
+    
+    # Seed to make the results reproducible
     np.random.seed(0)
 
+    # Kmeans clustering of the voxels
     _, labels_def, centers = cv.kmeans(voxels_no_height, 4, None, criteria, 20, cv.KMEANS_RANDOM_CENTERS) # 4 is number of clusters, 20 is number of attempts, centres randomly chosen
 
+    # If we don't want to remove outliers, return the labels, centers and voxels
     if not remove_outliers:
         return labels_def, centers, voxels
-    
-    # TODO: IMPLEMENT REMOVAL OF OUTLIERS AND GHOSTS HERE
-    labels_def_no_outliers, centers_no_outliers, voxels_no_outliers = remove_outliers_and_ghosts(labels_def, centers, voxels, voxels_no_height)
-    # TODO: change the code a bit (variables, order and stuff)
+
+    labels_def_no_outliers, centers_no_outliers, voxels_no_outliers = remove_outliers(labels_def, centers, voxels, voxels_no_height)
 
     return labels_def_no_outliers, centers_no_outliers, voxels_no_outliers
 
 def online_phase(total_labels, total_voxels, total_visible_voxels_colors_per_cam, total_visible_voxels_per_cam, cam_color_models_offline, idx):
     """
-    Contains a comparison of the offline color models with the online ones, a
-    label matching to obtain the final labelling of each person, and initiates 2D path tracking on the floor.
+    Online phase of the color clustering algorithm: it uses the color models to assign the labels to the voxels
+
+    :param total_labels: labels of the voxels
+    :param total_voxels: 3D coordinates of the voxels
+    :param total_visible_voxels_colors_per_cam: visible voxels colors for each camera
+    :param total_visible_voxels_per_cam: visible voxels for each camera
+    :param cam_color_models_offline: offline color models for each camera
+    :param idx: index of the frame for online color model
+
+    :return: predictions
     """
     
-    # TODO: We have to pay attention here to the order of the labeling, by choosing a different idx for each camera the labels are going to be all fucked. 
-    # I'll try to figure this out but i need to think about it a bit.
-    # POSSIBLE SOLUTION: Because we know every frame (in settings.OFFLINE_IDX there is the idx of the frame) and the centres of the clustering, 
-    # we could map for each camera, the label to the cluster we want, so that we make sure that for all cameras, the models are created for the guys we want.
+    # Create the color models for the online phase
     _, cam_rois_online = color_model(total_voxels, total_labels, total_visible_voxels_per_cam, total_visible_voxels_colors_per_cam, idx = idx)
     
-    # Total cost matrix initiation, shaped number of clusters x number of clusters
+    # Create the cost matrix for the Hungarian algorithm
     total_cost_matrix = np.zeros((settings.NUMBER_OF_CLUSTERS, settings.NUMBER_OF_CLUSTERS), dtype=np.float32)
-    # Loop over all cameras
+    
     for n_camera in range(1, settings.NUM_CAMERAS+1):
-        cost_matrix = [] # TODO: Check if we need and where
+        cost_matrix = []
         max_log_likelihood = 0.0
+        # Loop over all the ROIs (regions of interest) for the current camera
         for roi in cam_rois_online[n_camera - 1]:
             cost_row = []
+            # Loop over all the color models for the current camera
             for label_offline, color_model_offline in enumerate(cam_color_models_offline[n_camera-1]):
-                
                 if len(roi) == 0:
-                    # Append logarithm of 0 to the cost row
-                    cost_row.append(-np.log(0)) # TODO: infinity is not accepted by linear sum assignment
+                    # Append logarithm of 0 to the cost row (it has 0 probability to be in the cluster)
+                    cost_row.append(-np.log(0))
                 else:
                     log_likelihood = 0.0
+                    # Loop over all the colors in the ROI
                     for color in roi:
+                        # Calculate the log likelihood of the color to be in the cluster
                         (single_log, _), _ = color_model_offline.predict2(color)
                         log_likelihood += single_log
 
-                    cost_row.append(-(log_likelihood)) # NOTE: Removed normalisation (even below) /len(roi)
+                    # Append the negative log likelihood to the cost row
+                    cost_row.append(-(log_likelihood))
+                    # Update the max log likelihood
                     if -(log_likelihood) > max_log_likelihood:
                         max_log_likelihood = -(log_likelihood)
                     
             # Add the complete row to the cost matrix  
             cost_matrix.append(cost_row)
 
-        # If a value is "inf" set it to "10*max_log_likelihood"
+        # If a value is "inf" set it to "10*max_log_likelihood" (to avoid infinite values in the cost matrix)
         for i in range(len(cost_matrix)):
             for j in range(len(cost_matrix[i])):
                 if cost_matrix[i][j] == -np.log(0):
@@ -223,11 +302,11 @@ def online_phase(total_labels, total_voxels, total_visible_voxels_colors_per_cam
         total_cost_matrix += cost_matrix
 
     print("Total cost matrix:\n", total_cost_matrix)
+
     # Run the Hungarian algorithm
     _, predictions = linear_sum_assignment(total_cost_matrix)
 
-    print("\nOptimal assignments:", predictions) # NOTE: Predictions are, in the order of the labels of the frame (random ones), which label (ACTUAL, CORRECT LABELS) is the best for the current camera based on the color models
+    print("\nOptimal assignments:", predictions)
         
-    return predictions # NOTE: I will assume that this final labels are the new labels in the order of the old labels (example in next line)
-    # EXAMPLE: If final_labels = [3, 1, 2, 4] then the labels will be changed like this [1, 2, 3, 4] -> [3, 1, 2, 4] (the first label is changed to 3, the second to 1, the third to 2 and the fourth to 4)
+    return predictions
             

@@ -16,7 +16,7 @@ from OpenGL.GL import glReadPixels, GL_PACK_ALIGNMENT, GL_RGB, GL_UNSIGNED_BYTE
 cube, hdrbuffer, blurbuffer, lastPosX, lastPosY = None, None, None, None, None
 firstTime = True
 window_width, window_height = config['window_width'], config['window_height']
-camera = Camera(glm.vec3(0, 270, 0), pitch=-90, yaw=0, speed=40)
+camera = Camera(glm.vec3(135, 128, -70), pitch=-40, yaw=150, speed=40)
 
 def capture_image(filename, window):
     # Get the size of the OpenGL window
