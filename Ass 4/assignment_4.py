@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 import os
 
-from models import LeNet5, LeNet5Variant1
+from models import LeNet5, LeNet5Variant1, LeNet5Variant2
 import settings
 from train import train_model
 from evaluate import plot_losses_accuracies
@@ -69,8 +69,8 @@ if not os.path.exists("plots/LeNet5_losses_accuracies.png"):
 
     print("Baseline model losses and accuracies plotted successfully")
 
-variants = [LeNet5Variant1()]
-variants_names = ["LeNet5Variant1"]
+variants = [LeNet5Variant1(), LeNet5Variant2()]
+variants_names = ["LeNet5Variant1", "LeNet5Variant2"]
 
 for i in range(len(variants)):
     if not os.path.exists(f"plots/{variants_names[i]}_losses_accuracies.png"):

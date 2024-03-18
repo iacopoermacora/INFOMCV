@@ -1,3 +1,5 @@
 data/
 plots/*
 models/*
+fashion-dataset/
+archive.zip
