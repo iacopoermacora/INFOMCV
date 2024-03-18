@@ -158,6 +158,9 @@ class LeNet5Variant3(nn.Module):
         # Second convolutional layer with ReLU activation and 2x2 max pooling
         x = self.conv2(x)
         x = F.relu(F.max_pool2d(x, 2, stride=2))
+        # Third convolutional layer with ReLU activation and 2x2 max pooling
+        x = self.conv3(x)
+        x = F.relu(F.max_pool2d(x, 2, stride=2))
         # Flatten the output for fully connected layers
         x = x.view(-1, self.num_flat_features(x)) # NOTE: Not completely sure what is happening here
         # Fully connected layers with ReLU activation

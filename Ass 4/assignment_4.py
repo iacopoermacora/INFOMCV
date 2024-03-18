@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 import os
 
-from models import LeNet5, LeNet5Variant1, LeNet5Variant2
+from models import LeNet5, LeNet5Variant1, LeNet5Variant2, LeNet5Variant3
 import settings
 from train import train_model
 from evaluate import plot_losses_accuracies
@@ -60,7 +60,7 @@ if not os.path.exists("plots/LeNet5_losses_accuracies.png"):
     optimizer = optim.Adam(baseline.parameters(), lr=0.001)
 
     # Train the model
-    train_losses, val_losses, train_accs, val_accs = train_model(baseline, "LeNet5", criterion, optimizer, train_loader, val_loader, dynamic_lr=False)
+    train_losses, val_losses, train_accs, val_accs = train_model(baseline, "LeNet5", criterion, optimizer, train_loader, val_loader, dynamic_lr=True)
 
     print("Baseline model trained successfully")
 
@@ -69,8 +69,8 @@ if not os.path.exists("plots/LeNet5_losses_accuracies.png"):
 
     print("Baseline model losses and accuracies plotted successfully")
 
-variants = [LeNet5Variant1(), LeNet5Variant2()]
-variants_names = ["LeNet5Variant1", "LeNet5Variant2"]
+variants = [LeNet5Variant1(), LeNet5Variant2(), LeNet5Variant3()]
+variants_names = ["LeNet5Variant1", "LeNet5Variant2", "LeNet5Variant3"]
 
 for i in range(len(variants)):
     if not os.path.exists(f"plots/{variants_names[i]}_losses_accuracies.png"):
@@ -82,7 +82,7 @@ for i in range(len(variants)):
         optimizer = optim.Adam(variants[i].parameters(), lr=0.001)
 
         # Train the model
-        train_losses, val_losses, train_accs, val_accs = train_model(variants[i], variants_names[i], criterion, optimizer, train_loader, val_loader, dynamic_lr=True)
+        train_losses, val_losses, train_accs, val_accs = train_model(variants[i], variants_names[i], criterion, optimizer, train_loader, val_loader, dynamic_lr=False)
 
         print(f"{variants_names[i]} model trained successfully")
 
