@@ -8,7 +8,7 @@ import os
 
 from models import LeNet5, LeNet5Variant1, LeNet5Variant2, LeNet5Variant3, LeNet5Variant4
 import settings
-from train import train_model
+from train import train_model, k_fold_train_and_validate
 from evaluate import plot_losses_accuracies
 
 
@@ -72,7 +72,7 @@ if not os.path.exists("plots/LeNet5_losses_accuracies.png"):
 variants = [LeNet5Variant1(), LeNet5Variant2(), LeNet5Variant3(), LeNet5Variant4()]
 variants_names = ["LeNet5Variant1", "LeNet5Variant2", "LeNet5Variant3", "LeNet5Variant4"]
 
-for i in range(len(variants)):
+'''for i in range(len(variants)):
     if not os.path.exists(f"plots/{variants_names[i]}_losses_accuracies.png"):
 
         print(f"Training {variants_names[i]} model")
@@ -83,6 +83,44 @@ for i in range(len(variants)):
 
         # Train the model
         train_losses, val_losses, train_accs, val_accs = train_model(variants[i], variants_names[i], criterion, optimizer, train_loader, val_loader, dynamic_lr=False)
+
+        print(f"{variants_names[i]} model trained successfully")
+
+        # Plot the training and validation losses and accuracies
+        plot_losses_accuracies(train_losses, val_losses, train_accs, val_accs, variants_names[i])
+
+        print(f"{variants_names[i]} model losses and accuracies plotted successfully")'''
+
+for i in range(len(variants)-1):
+    if not os.path.exists(f"plots/{variants_names[i]}_losses_accuracies.png"):
+
+        print(f"Training {variants_names[i]} model")
+
+        # Initialize model, loss function, and optimizer
+        criterion = nn.CrossEntropyLoss()
+        optimizer = optim.Adam(variants[i].parameters(), lr=0.001)
+
+        # Train the model
+        train_losses, val_losses, train_accs, val_accs = train_model(variants[i], variants_names[i], criterion, optimizer, train_loader, val_loader, dynamic_lr=False)
+
+        print(f"{variants_names[i]} model trained successfully")
+
+        # Plot the training and validation losses and accuracies
+        plot_losses_accuracies(train_losses, val_losses, train_accs, val_accs, variants_names[i])
+
+        print(f"{variants_names[i]} model losses and accuracies plotted successfully")
+
+for i in range(len(variants)-1, len(variants)):
+    if not os.path.exists(f"plots/{variants_names[i]}_losses_accuracies.png"):
+
+        print(f"Training {variants_names[i]} model")
+
+        # Initialize model, loss function, and optimizer
+        criterion = nn.CrossEntropyLoss()
+        optimizer = optim.Adam(variants[i].parameters(), lr=0.001)
+
+        # Train the model
+        train_losses, val_losses, train_accs, val_accs = k_fold_train_and_validate(variants[i], variants_names[i], criterion, training_data, num_folds=5, dynamic_lr=False)
 
         print(f"{variants_names[i]} model trained successfully")
 
