@@ -18,6 +18,24 @@ def test_model(model, test_loader):
 
     return test_accuracy
 
+def see_model_outputs(model, data):
+    # Testing
+    model.eval()  # Set the model to evaluation mode
+    _, feature_maps_conv1= model(data)
+
+    # Visualize feature maps
+    plt.figure(figsize=(10, 4))
+
+    # Visualize feature maps after the first convolutional layer
+    for i in range(12):  # Assuming there are 12 feature maps in the first convolutional layer
+        plt.subplot(2, 6, i + 1)
+        plt.imshow(feature_maps_conv1[0, i, :, :], cmap='gray')
+        plt.axis('off')
+        plt.title(f'Conv1 Feature Map {i+1}')
+
+    plt.tight_layout()
+    plt.savefig('plots/feature_maps_conv1.png')
+
 def plot_losses_accuracies(train_losses, val_losses, train_accs, val_accs, title="Model"):
     # Plotting training and validation loss
     plt.figure(figsize=(10, 5))

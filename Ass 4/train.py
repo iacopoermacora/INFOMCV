@@ -7,6 +7,27 @@ import matplotlib.pyplot as plt
 from sklearn.model_selection import KFold
 import numpy as np
 from torch.utils.data import DataLoader, Subset
+from  tqdm import tqdm
+from sklearn.metrics import confusion_matrix
+import seaborn as sns
+
+def plot_confusion_matrix(model_name, y_true, y_pred, classes):
+    cm = confusion_matrix(y_true, y_pred)
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=classes, yticklabels=classes)
+    plt.xlabel('Predicted labels')
+    plt.ylabel('True labels')
+    plt.title('Confusion Matrix')
+    plt.show('confusion_matrices/' + model_name + '_confusion_matrix.png')
+
+def plot_lr_evolution(learning_rates):
+    # Plot the evolution of learning rate with respect to the epoch
+    plt.plot(range(1, settings.NUM_EPOCHS + 1), learning_rates)
+    plt.xlabel('Epoch')
+    plt.ylabel('Learning Rate')
+    plt.title('Learning Rate Evolution')
+    plt.grid(True)
+    plt.savefig('plots/learning_rate_evolution.png')
 
 def initialize_model(model_class):
     model = model_class()
@@ -94,7 +115,7 @@ def train_model(model, model_name, criterion, optimizer, train_loader, val_loade
     train_accs = []
     val_accs = []
 
-    for epoch in range(settings.NUM_EPOCHS):
+    for epoch in tqdm(range(settings.NUM_EPOCHS), desc=f'Training {model_name} model'):
         model.train()  # Set the model to training mode
         running_train_loss = 0.0
         correct_train = 0
@@ -127,6 +148,8 @@ def train_model(model, model_name, criterion, optimizer, train_loader, val_loade
         running_val_loss = 0.0
         correct_val = 0
         total_val = 0
+        predicted_labels = []
+        true_labels = []
         with torch.no_grad():
             for data, targets in val_loader:
                 outputs = model(data)
@@ -135,14 +158,14 @@ def train_model(model, model_name, criterion, optimizer, train_loader, val_loade
 
                 # Calculate accuracy
                 _, predicted = torch.max(outputs.data, 1)
+                predicted_labels.extend(predicted.tolist())
+                true_labels.extend(targets.tolist())
                 total_val += targets.size(0)
                 correct_val += (predicted == targets).sum().item()
 
         # Calculate average validation loss and accuracy
         avg_val_loss = running_val_loss / len(val_loader)
         val_accuracy = correct_val / total_val
-
-        print(f'Epoch [{epoch+1}/{settings.NUM_EPOCHS}], Train Loss: {avg_train_loss:.4f}, Val Loss: {avg_val_loss:.4f}, Train Acc: {train_accuracy:.4f}, Val Acc: {val_accuracy:.4f}')
 
         # Save txt file with the model's train and validation losses and accuracies
         with open(f'plots/{model.__class__.__name__}_fold_{fold_num}_losses_accuracies.txt', 'a') as f:
@@ -158,13 +181,8 @@ def train_model(model, model_name, criterion, optimizer, train_loader, val_loade
     torch.save(model.state_dict(), f'models/{model_name}_fold_{fold_num}.pth')
     
     if (not os.path.exists("plots/learning_rate_evolution.png")) and dynamic_lr:
-        if fold_num == 0:
-            # Plot the evolution of learning rate with respect to the epoch
-            plt.plot(range(1, settings.NUM_EPOCHS + 1), learning_rates)
-            plt.xlabel('Epoch')
-            plt.ylabel('Learning Rate')
-            plt.title('Learning Rate Evolution')
-            plt.grid(True)
-            plt.savefig('plots/learning_rate_evolution.png')      
+        plot_lr_evolution(learning_rates)
+
+    plot_confusion_matrix(model_name, true_labels, predicted_labels, classes=["T-shirt", "Trouser", "Pullover", "Dress", "Coat", "Sandal", "Shirt", "Sneaker", "Bag", "Ankle boot"])
 
     return train_losses, val_losses, train_accs, val_accs, learning_rates
