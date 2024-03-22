@@ -18,7 +18,7 @@ def plot_confusion_matrix(model_name, y_true, y_pred, classes):
     plt.xlabel('Predicted labels')
     plt.ylabel('True labels')
     plt.title('Confusion Matrix')
-    plt.show('confusion_matrices/' + model_name + '_confusion_matrix.png')
+    plt.savefig('confusion_matrices/' + model_name + '_confusion_matrix.png')
 
 def plot_lr_evolution(learning_rates):
     # Plot the evolution of learning rate with respect to the epoch
@@ -100,6 +100,8 @@ def k_fold_train_and_validate(model_constr, model_name, criterion, training_data
 
 
 def train_model(model, model_name, criterion, optimizer, train_loader, val_loader, fold_num=0, dynamic_lr=False):
+
+    print("Dinamic lr: ", dynamic_lr)
     # Check if fold_num is specified to identify a k-fold training scenario
     if fold_num > 0:  
         print(f"Training Fold {fold_num}")
