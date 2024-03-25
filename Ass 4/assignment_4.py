@@ -11,7 +11,6 @@ import settings
 from train import train_model, k_fold_train_and_validate
 from evaluate import plot_losses_accuracies
 
-
 device = (
     "cuda"
     if torch.cuda.is_available()
@@ -101,7 +100,7 @@ for i in range(len(variants)):
         optimizer = optim.Adam(variants[i].parameters(), lr=0.001)
 
         # Train the model
-        train_losses, val_losses, train_accs, val_accs, _ = train_model(variants[i], variants_names[i], criterion, optimizer, train_loader, val_loader, dynamic_lr=True)
+        train_losses, val_losses, train_accs, val_accs, _ = train_model(variants[i], variants_names[i], criterion, optimizer, train_loader, val_loader, dynamic_lr=(i >= 2))
 
         print(f"{variants_names[i]} model trained successfully")
 

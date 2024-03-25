@@ -1,6 +1,4 @@
 data/
-plots/*
-models/*
 fashion-dataset/
 archive.zip
 __pycache__/
