@@ -23,11 +23,15 @@ class LeNet5(nn.Module):
                 nn.init.kaiming_uniform_(m.weight, mode='fan_in', nonlinearity='relu')
 
     def forward(self, x):
+        intermediates = []
+
         # First convolutional layer with ReLU activation and 2x2 max pooling
         x = F.relu(self.conv1(x))
+        intermediates.append((x, self.conv1.weight))
         x = F.relu(F.max_pool2d(x, 2, stride=2))
         # Second convolutional layer with ReLU activation and 2x2 max pooling
         x = F.relu(self.conv2(x))
+        intermediates.append((x, self.conv2.weight))
         x = F.relu(F.max_pool2d(x, 2, stride=2))
         # Flatten the output for fully connected layers
         x = x.view(-1, self.num_flat_features(x)) # NOTE: Not completely sure what is happening here
@@ -35,10 +39,10 @@ class LeNet5(nn.Module):
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         # Output layer with softmax activation
-        x = self.fc2(x)
+        x = self.fc3(x)
         fc_embeddings = x
         x = F.softmax(x, dim=1)
-        return x, fc_embeddings
+        return x, fc_embeddings, intermediates
 
     def num_flat_features(self, x):
         size = x.size()[1:]  # Exclude batch dimension
@@ -67,11 +71,15 @@ class LeNet5Variant1(nn.Module):
                 nn.init.kaiming_uniform_(m.weight, mode='fan_in', nonlinearity='relu')
 
     def forward(self, x):
+        intermediates = []
+
         # First convolutional layer with ReLU activation and 2x2 max pooling
         x = F.relu(self.conv1(x))
+        intermediates.append((x, self.conv1.weight))
         x = F.relu(F.max_pool2d(x, 2, stride=2))
         # Second convolutional layer with ReLU activation and 2x2 max pooling
         x = F.relu(self.conv2(x))
+        intermediates.append((x, self.conv2.weight))
         x = F.relu(F.max_pool2d(x, 2, stride=2))
         # Third convolutional layer with ReLU activation
         x = F.relu(self.conv3(x))
@@ -83,7 +91,7 @@ class LeNet5Variant1(nn.Module):
         x = self.fc2(x)
         fc_embeddings = x
         x = F.softmax(x, dim=1)
-        return x, fc_embeddings
+        return x, fc_embeddings, intermediates
 
     def num_flat_features(self, x):
         size = x.size()[1:]  # Exclude batch dimension
@@ -112,11 +120,15 @@ class LeNet5Variant2(nn.Module):
                 nn.init.kaiming_uniform_(m.weight, mode='fan_in', nonlinearity='relu')
 
     def forward(self, x):
+        intermediates = []
+
         # First convolutional layer with ReLU activation and 2x2 max pooling
         x = F.relu(self.conv1(x))
+        intermediates.append((x, self.conv1.weight))
         x = F.relu(F.max_pool2d(x, 2, stride=2))
         # Second convolutional layer with ReLU activation and 2x2 max pooling
         x = F.relu(self.conv2(x))
+        intermediates.append((x, self.conv2.weight))
         x = F.relu(F.max_pool2d(x, 2, stride=2))
         # Third convolutional layer with ReLU activation
         x = F.relu(self.conv3(x))
@@ -128,7 +140,7 @@ class LeNet5Variant2(nn.Module):
         x = self.fc2(x)
         fc_embeddings = x
         x = F.softmax(x, dim=1)
-        return x, fc_embeddings
+        return x, fc_embeddings, intermediates
 
     def num_flat_features(self, x):
         size = x.size()[1:]  # Exclude batch dimension
@@ -157,11 +169,15 @@ class LeNet5Variant3(nn.Module):
                 nn.init.kaiming_uniform_(m.weight, mode='fan_in', nonlinearity='relu')
 
     def forward(self, x):
+        intermediates = []
+
         # First convolutional layer with ReLU activation and 2x2 max pooling
         x = F.relu(self.conv1(x))
+        intermediates.append((x, self.conv1.weight))
         x = F.relu(F.max_pool2d(x, 2, stride=2))
         # Second convolutional layer with ReLU activation and 2x2 max pooling
         x = F.relu(self.conv2(x))
+        intermediates.append((x, self.conv2.weight))
         x = F.relu(F.max_pool2d(x, 2, stride=2))
         # Third convolutional layer with ReLU activation
         x = F.relu(self.conv3(x))
@@ -173,7 +189,7 @@ class LeNet5Variant3(nn.Module):
         x = self.fc2(x)
         fc_embeddings = x
         x = F.softmax(x, dim=1)
-        return x, fc_embeddings
+        return x, fc_embeddings, intermediates
 
     def num_flat_features(self, x):
         size = x.size()[1:]  # Exclude batch dimension
@@ -204,11 +220,15 @@ class LeNet5Variant4(nn.Module):
                 nn.init.kaiming_uniform_(m.weight, mode='fan_in', nonlinearity='relu')
 
     def forward(self, x):
+        intermediates = []
+
         # First convolutional layer with ReLU activation and 2x2 max pooling
         x = F.relu(self.conv1(x))
+        intermediates.append((x, self.conv1.weight))
         x = F.relu(F.max_pool2d(x, 2, stride=2))
         # Second convolutional layer with ReLU activation and 2x2 max pooling
         x = F.relu(self.conv2(x))
+        intermediates.append((x, self.conv2.weight))
         x = F.relu(F.max_pool2d(x, 2, stride=2))
         # Third convolutional layer with ReLU activation
         x = F.relu(self.conv3(x))
@@ -221,58 +241,6 @@ class LeNet5Variant4(nn.Module):
         x = self.fc2(x)
         fc_embeddings = x
         x = F.softmax(x, dim=1)
-        return x, fc_embeddings
-
-    def num_flat_features(self, x):
-        size = x.size()[1:]  # Exclude batch dimension
-        num_features = 1
-        for s in size:
-            num_features *= s
-        return num_features
-    
-
-class LeNet5Variant4_outputs(nn.Module):
-    def __init__(self):
-        super(LeNet5Variant4_outputs, self).__init__()
-        # First convolutional layer
-        self.conv1 = nn.Conv2d(1, 6, kernel_size=3, padding=1)
-        # Second convolutional layer
-        self.conv2 = nn.Conv2d(6, 16, kernel_size=5)
-        # Third convolutional layer
-        self.conv3 = nn.Conv2d(16, 120, kernel_size=5)
-        # Fully connected layers
-        self.fc1 = nn.Linear(120, 84)
-        self.fc2 = nn.Linear(84, 10)  # 10 output classes for Fashion-MNIST
-        self.dropout1 = nn.Dropout(p=0.25)
-
-        # Initialize weights using Kaiming Uniform initialization
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
-                nn.init.kaiming_uniform_(m.weight, mode='fan_in', nonlinearity='relu')
-
-    def forward(self, x):
-        intermediates = []
-
-        # First convolutional layer with ReLU activation and 2x2 max pooling
-        x = F.relu(self.conv1(x))
-        intermediates.append((x, self.conv1.weight))  # Store feature map and filter for conv1
-        x = F.relu(F.max_pool2d(x, 2, stride=2))
-        # Second convolutional layer with ReLU activation and 2x2 max pooling
-        x = F.relu(self.conv2(x))
-        intermediates.append((x, self.conv2.weight))  # Store feature map and filter for conv2
-        x = F.relu(F.max_pool2d(x, 2, stride=2))
-        # Third convolutional layer with ReLU activation
-        x = F.relu(self.conv3(x))
-        # Flatten the output for fully connected layers
-        x = x.view(-1, self.num_flat_features(x))
-        # Fully connected layers with ReLU activation
-        x = F.relu(self.fc1(x))
-        x = self.dropout1(x)
-        # Output layer with softmax activation
-        x = self.fc2(x)
-        fc_embeddings = x
-        x = F.softmax(x, dim=1)
-        
         return x, fc_embeddings, intermediates
 
     def num_flat_features(self, x):

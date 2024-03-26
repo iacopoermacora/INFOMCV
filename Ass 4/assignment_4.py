@@ -7,11 +7,12 @@ import torch.optim as optim
 import os
 import random
 
-from models import LeNet5, LeNet5Variant1, LeNet5Variant2, LeNet5Variant3, LeNet5Variant4, LeNet5Variant4_outputs
+from models import LeNet5, LeNet5Variant1, LeNet5Variant2, LeNet5Variant3, LeNet5Variant4
 import settings
 from train import train_model, k_fold_train_and_validate
 from evaluate import plot_losses_accuracies, test_model, plot_feature_maps
 
+# Define the device to be used
 device = (
     "cuda"
     if torch.cuda.is_available()
@@ -22,7 +23,6 @@ device = (
 print(f"Using {device} device")
 
 # Import train and test data from the Fashion-MNIST dataset
-
 training_data = datasets.FashionMNIST(
     root="data",
     train=True,
@@ -49,7 +49,7 @@ test_loader = DataLoader(test_data, batch_size=settings.BATCH_SIZE, shuffle=Fals
 
 print("Data loaded successfully")
 
-# BASELINE MODEL
+# BASELINE MODEL - Train and plot the losses and accuracies
 if not os.path.exists("models/LeNet5_fold_0.pth"):
 
     print("Training baseline model")
@@ -69,9 +69,11 @@ if not os.path.exists("models/LeNet5_fold_0.pth"):
 
     print("Baseline model losses and accuracies plotted successfully")
 
+# Define all the model variants
 variants = [LeNet5Variant1(), LeNet5Variant2(), LeNet5Variant3(), LeNet5Variant4()]
 variants_names = ["LeNet5Variant1", "LeNet5Variant2", "LeNet5Variant3", "LeNet5Variant4"]
 
+# Train and plot the losses and accuracies for each model variant
 for i in range(len(variants)):
     if not os.path.exists(f"models/{variants_names[i]}_fold_0.pth"):
 
@@ -91,12 +93,12 @@ for i in range(len(variants)):
 
         print(f"{variants_names[i]} model losses and accuracies plotted successfully")
 
+# Perform the choice tasks on the best model
 j = len(variants) - 1
-print(f"Training {variants_names[j]} model - Choice tasks")
+print(f"{variants_names[j]} model - Choice tasks")
 
-# Test the model with the best hyperparameters
-
-test_accuracy = test_model(test_loader)
+# Test the accuracy of the model on the test set and plot the t-SNE visualization
+test_accuracy = test_model(variants_names[j], test_loader, IS_TSNE = True)
 
 print(f"Test accuracy for {variants_names[j]} model: {test_accuracy}")
 
@@ -124,33 +126,58 @@ if not os.path.exists(f"models/{variants_names[j]}_fold_5.pth"):
 
 print("Testing final model with intermediate outputs")
 
+# Choose two items from the test set to be anaylised
+# Choose two classes to retrieve
 classes_to_retrieve = [0, 9]
+# Choose the index of the item to retrieve for each class
 index_of_class = [3, 9]
 for i in range(len(classes_to_retrieve)):
-    # Define the class you want to retrieve
-    class_to_retrieve = classes_to_retrieve[i]  # Change this to the class you want to retrieve
+    # Define the class to retrieve
+    class_to_retrieve = classes_to_retrieve[i] 
 
-    # Choose one item randomly from the selected class (for demonstration purposes)
+    # Select all the indexes of the images with the class to retrieve
     index_image = [i for i, label in enumerate(test_data.targets) if label == class_to_retrieve]
 
-    # Get two images with different classes from the test set
+    # Get the image to be analysed
     image = test_data[index_image[index_of_class[i]]][0].unsqueeze(0)
 
-    model = LeNet5Variant4_outputs()
+    # Load the model
+    model = LeNet5Variant4()
     model.load_state_dict(torch.load(f'models/LeNet5Variant4_fold_0.pth'))
 
+    # Set the model to evaluation mode
     model.eval()
     _, _, intermediates = model(image)
 
+    # Define the class names
     class_names = ['T-shirt or top', 'Trouser', 'Pullover', 'Dress', 'Coat',
                     'Sandal', 'Shirt', 'Sneaker', 'Bag', 'Ankle boot']
 
+    # Plot the feature maps of the intermediate layers
     plot_feature_maps(intermediates, class_names[class_to_retrieve])
 
+# TRAINING ON TRAIN AND VALIDATION SET
 
+if not os.path.exists(f"models/Train + Validation Set {variants_names[j]}_fold_0.pth"):
+    print("Training on train and validation set...")
 
+    # Initialize model, loss function, and optimizer
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(variants[j].parameters(), lr=0.001)
 
+    # Combine the training and validation sets
+    train_val_loader = DataLoader(training_data, batch_size=settings.BATCH_SIZE, shuffle=True)
 
+    # Train the model
+    train_losses, val_losses, train_accs, val_accs, _ = train_model(variants[j], f"Train + Validation Set {variants_names[j]}", criterion, optimizer, train_val_loader, _, dynamic_lr=True, use_validation=False)
 
+    print(f"{variants_names[j]} model trained successfully")
 
+    # Plot the training and validation losses and accuracies
+    plot_losses_accuracies(train_losses, val_losses, train_accs, val_accs, f"Train + Validation Set {variants_names[j]}", use_validation=False)
 
+    print(f"{variants_names[j]} model losses and accuracies plotted successfully")
+
+    test_accuracy = test_model(f"Train + Validation Set {variants_names[j]}", test_loader)
+
+    print(f"Test accuracy for {variants_names[j]} model trained on train+val: {test_accuracy}")
