@@ -22,6 +22,7 @@ def plot_confusion_matrix(model_name, y_true, y_pred, classes):
 
 def plot_lr_evolution(learning_rates):
     # Plot the evolution of learning rate with respect to the epoch
+    plt.figure(figsize=(8, 6))
     plt.plot(range(1, settings.NUM_EPOCHS + 1), learning_rates)
     plt.xlabel('Epoch')
     plt.ylabel('Learning Rate')
@@ -125,7 +126,7 @@ def train_model(model, model_name, criterion, optimizer, train_loader, val_loade
         
         for batch_idx, (data, targets) in enumerate(train_loader):
             optimizer.zero_grad()  # Zero the parameter gradients
-            outputs = model(data)  # Forward pass
+            outputs, _ = model(data)  # Forward pass
             loss = criterion(outputs, targets)  # Calculate the loss
             loss.backward()  # Backward pass
             optimizer.step()  # Optimize
@@ -154,7 +155,7 @@ def train_model(model, model_name, criterion, optimizer, train_loader, val_loade
         true_labels = []
         with torch.no_grad():
             for data, targets in val_loader:
-                outputs = model(data)
+                outputs, _ = model(data)
                 val_loss = criterion(outputs, targets)
                 running_val_loss += val_loss.item()
 
