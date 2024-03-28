@@ -2,7 +2,6 @@ import torch.nn.functional as F
 import torch.nn as nn
 
 # Implement the LeNet5 model
-# NOTE: In the original architecture they use tanh and not ReLU, I am pretty sure
 # https://readmedium.com/en/https:/medium.com/@siddheshb008/lenet-5-architecture-explained-3b559cb2d52b
 
 class LeNet5(nn.Module):
@@ -13,7 +12,7 @@ class LeNet5(nn.Module):
         # Second convolutional layer
         self.conv2 = nn.Conv2d(6, 16, kernel_size=5)
         # Fully connected layers
-        self.fc1 = nn.Linear(16 * 5 * 5, 120)  # 4x4 image dimension after 2x2 pooling twice TODO: Check if it is fine changing to 4x4 instead than 5x5
+        self.fc1 = nn.Linear(16 * 5 * 5, 120)  # 4x4 image dimension after 2x2 pooling twice
         self.fc2 = nn.Linear(120, 84)
         self.fc3 = nn.Linear(84, 10)  # 10 output classes for Fashion-MNIST
 
@@ -34,7 +33,7 @@ class LeNet5(nn.Module):
         intermediates.append((x, self.conv2.weight))
         x = F.relu(F.max_pool2d(x, 2, stride=2))
         # Flatten the output for fully connected layers
-        x = x.view(-1, self.num_flat_features(x)) # NOTE: Not completely sure what is happening here
+        x = x.view(-1, self.num_flat_features(x))
         # Fully connected layers with ReLU activation
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
@@ -84,7 +83,7 @@ class LeNet5Variant1(nn.Module):
         # Third convolutional layer with ReLU activation
         x = F.relu(self.conv3(x))
         # Flatten the output for fully connected layers
-        x = x.view(-1, self.num_flat_features(x)) # NOTE: Not completely sure what is happening here
+        x = x.view(-1, self.num_flat_features(x))
         # Fully connected layers with ReLU activation
         x = F.relu(self.fc1(x))
         # Output layer with softmax activation
@@ -133,7 +132,7 @@ class LeNet5Variant2(nn.Module):
         # Third convolutional layer with ReLU activation
         x = F.relu(self.conv3(x))
         # Flatten the output for fully connected layers
-        x = x.view(-1, self.num_flat_features(x)) # NOTE: Not completely sure what is happening here
+        x = x.view(-1, self.num_flat_features(x))
         # Fully connected layers with ReLU activation
         x = F.relu(self.fc1(x))
         # Output layer with softmax activation
@@ -182,7 +181,7 @@ class LeNet5Variant3(nn.Module):
         # Third convolutional layer with ReLU activation
         x = F.relu(self.conv3(x))
         # Flatten the output for fully connected layers
-        x = x.view(-1, self.num_flat_features(x)) # NOTE: Not completely sure what is happening here
+        x = x.view(-1, self.num_flat_features(x))
         # Fully connected layers with ReLU activation
         x = F.relu(self.fc1(x))
         # Output layer with softmax activation
@@ -233,7 +232,7 @@ class LeNet5Variant4(nn.Module):
         # Third convolutional layer with ReLU activation
         x = F.relu(self.conv3(x))
         # Flatten the output for fully connected layers
-        x = x.view(-1, self.num_flat_features(x)) # NOTE: Not completely sure what is happening here
+        x = x.view(-1, self.num_flat_features(x))
         # Fully connected layers with ReLU activation
         x = F.relu(self.fc1(x))
         x = self.dropout1(x)
