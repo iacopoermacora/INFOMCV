@@ -22,7 +22,7 @@ def create_hmdb51_splits(keep_hmdb51):
     split_pattern_path = os.path.join('test_train_splits', split_pattern_name)
     annotation_paths = glob.glob(split_pattern_path)
     for filepath in annotation_paths:
-        class_name = '_'.join(filepath.split('\\')[-1].split('_')[:-2]) # TODO: Change this line for MAC or Linux
+        class_name = '_'.join(filepath.split('/')[-1].split('_')[:-2]) # TODO: Change this line for MAC or Linux
         if class_name not in keep_hmdb51:
             print(f"Skipping {class_name}")
             continue  # skipping the classes that we won't use.
@@ -51,6 +51,10 @@ def create_hmdb51_splits(keep_hmdb51):
     return train_files, train_labels, test_files, test_labels
 
 def plot_distribution(train_labels, test_labels, keep_hmdb51):
+    # Check if the distribution file already exists
+    if os.path.exists("plots/dataset_distributions/hmdb51_distribution.png"):
+        print("Distribution file already exists. Skipping the plotting.")
+        return
     # Counting items for each class
     train_counter = Counter(train_labels)
     test_counter = Counter(test_labels)
@@ -82,6 +86,10 @@ def plot_distribution(train_labels, test_labels, keep_hmdb51):
     plt.savefig("plots/dataset_distributions/hmdb51_distribution.png")
 
 def check_video_length(train_files, train_labels, test_files, test_labels, keep_hmdb51):
+    # Check if the video lenght file already exists
+    if os.path.exists("plots/dataset_distributions/hmdb51_video_length_distribution.png"):
+        print("Video lenght file already exists. Skipping the plotting.")
+        return
     train_video_lengths = {class_name: [] for class_name in keep_hmdb51}
     test_video_lengths = {class_name: [] for class_name in keep_hmdb51}
 
@@ -119,6 +127,10 @@ def check_video_length(train_files, train_labels, test_files, test_labels, keep_
     plt.savefig("plots/dataset_distributions/hmdb51_video_length_distribution.png")
 
 def check_frame_size(train_files, train_labels, test_files, test_labels, keep_hmdb51):
+    # Check if the frame size file already exists
+    if os.path.exists("plots/dataset_distributions/hmdb51_frame_size_distribution.png"):
+        print("Frame size file already exists. Skipping the plotting.")
+        return
     train_frame_sizes = {class_name: [] for class_name in keep_hmdb51}
     test_frame_sizes = {class_name: [] for class_name in keep_hmdb51}
 
