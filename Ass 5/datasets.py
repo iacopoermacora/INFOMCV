@@ -58,12 +58,14 @@ class OpticalFlowDataset(Dataset):
         return flow_stack, label
 
     def load_optical_flow_stack(self, idx):
-        video_path = os.path.join(self.root_dir, self.labels[idx], self.file_paths[idx])
-        optical_flow_folder = os.path.join(self.root_dir, "optical_flow_images")
         flow_stack = []
 
-        for i in range(1, 16):
-            flow_img_path = os.path.join(optical_flow_folder, f"{idx}_{i}.png")
+        flow_folder_path = os.path.join(self.root_dir, self.labels[idx])
+        print(self.file_paths[idx])
+        image_files = [file for file in os.listdir(flow_folder_path) if file.startswith(os.path.splitext(self.file_paths[idx])[0])]
+                       
+        for image in image_files:
+            flow_img_path = os.path.join(flow_folder_path, image)
             flow_img = cv2.imread(flow_img_path, cv2.IMREAD_GRAYSCALE)
             flow_stack.append(flow_img)
 
@@ -135,9 +137,9 @@ for i, video_file, video_label in enumerate(zip(test_files, test_labels)):
     extract_optical_flow_and_save(video_path, output_folder)
 
 '''# Create custom dataset
-train_dataset = OpticalFlowDataset(range(len(train_files)), train_labels, root_dir="video_data")
-test_dataset = OpticalFlowDataset(range(len(test_files)), test_labels, root_dir="video_data")
-
+train_dataset = OpticalFlowDataset(train_files, train_labels, root_dir="optical_flow_images")
+test_dataset = OpticalFlowDataset(test_files, test_labels, root_dir="optical_flow_images")
+print(test_dataset.__getitem__(0))
 # Example usage of DataLoader
 train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)'''
