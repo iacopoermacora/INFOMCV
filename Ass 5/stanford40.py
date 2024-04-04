@@ -172,7 +172,25 @@ def plot_image_dimensions_distribution(train_file_paths, test_file_paths):
     ax.set_zlabel('Frequency')
     ax.set_title('Distribution of Image Dimensions')
 
-    plt.savefig("plots/dataset_distributions/stanford40_frame_size_distribution.png")          
+    plt.savefig("plots/dataset_distributions/stanford40_frame_size_distribution.png") 
+
+# Function to resize images and save them to a new directory
+def resize_and_save_images(input_folder, output_folder, file_list, target_size=(112, 112)):
+    # Create the output folder if it doesn't exist
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+    
+    # Loop through each file in the file list
+    for filename in file_list:
+        # Read the image
+        img = cv2.imread(os.path.join(input_folder, filename))
+        
+        # Resize the image
+        resized_img = cv2.resize(img, target_size)
+        
+        # Save the resized image to the output folder
+        cv2.imwrite(os.path.join(output_folder, filename), resized_img)
+
 
 train_files, train_labels, test_files, test_labels = create_stanford40_splits()
 train_distribution, test_distribution = check_distribution(train_files, train_labels, test_files, test_labels)
@@ -201,11 +219,13 @@ print("Smallest Image Size:", smallest_height, smallest_width)
 
 plot_image_dimensions_distribution(train_file_paths, test_file_paths)
 
-# Data Preprocessing
-if smallest_image_path is not None:
-    target_size = (smallest_height, smallest_width)  # Target size for resizing NOTE: To decide how to resize images.
-    train_images_preprocessed, corrupted_train_images = preprocess_images(train_file_paths, target_size=target_size)
-    test_images_preprocessed, corrupted_test_images = preprocess_images(test_file_paths, target_size=target_size)
+# Paths to the input and output folders
+input_folder = "Stanford40/JPEGImages"
+output_folder_train = "photo_dataset/train"
+output_folder_test = "photo_dataset/test"
 
-print("Corrupted Train Images:", corrupted_train_images)
-print("Corrupted Test Images:", corrupted_test_images)
+# Resize and save train images
+resize_and_save_images(input_folder, output_folder_train, train_files)
+
+# Resize and save test images
+resize_and_save_images(input_folder, output_folder_test, test_files)
