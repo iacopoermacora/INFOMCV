@@ -3,6 +3,7 @@ import glob
 from collections import Counter
 import matplotlib.pyplot as plt
 import cv2
+from tqdm import tqdm
 
 # HMDB51 DATASET
 def create_hmdb51_splits(keep_hmdb51):
@@ -173,9 +174,107 @@ def check_frame_size(train_files, train_labels, test_files, test_labels, keep_hm
     plt.tight_layout()
     plt.savefig("plots/dataset_distributions/hmdb51_frame_size_distribution.png")
 
+def extract_optical_flow_and_save(video_path, output_folder):
+    cap = cv2.VideoCapture(video_path)
+    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+    os.makedirs(output_folder, exist_ok=True)
+
+    # Check if it exsists a file in the output folder that starts with the same name as the video file
+    if any(file.startswith(os.path.splitext(video_file)[0]) for file in os.listdir(output_folder)):
+        print(f"Optical flow images for {video_path} already exist. Skipping the extraction.")
+        return
+    else:
+        print(f"Extracting optical flow images for {video_path}")
+
+    if frame_count < 16:
+        print("#" * 200)
+        print(f"Video {video_path} has less than 16 frames.")
+    step_size = frame_count // 16
+    for i, idx in enumerate(range(1, frame_count, step_size)):  # Extract 16 evenly spaced frames
+        if i > 15:
+            break
+
+        ret, frame1 = cap.read()
+        ret, frame2 = cap.read()
+        if not ret:
+            break
+
+        frame1_gray = cv2.cvtColor(frame1, cv2.COLOR_BGR2GRAY)
+        frame2_gray = cv2.cvtColor(frame2, cv2.COLOR_BGR2GRAY)
+
+        flow = cv2.calcOpticalFlowFarneback(frame1_gray, frame2_gray, None, 0.5, 3, 15, 3, 5, 1.2, 0)
+
+        # Calculate magnitude and angle
+        mag, _ = cv2.cartToPolar(flow[..., 0], flow[..., 1])
+
+        # Normalize magnitude to range [0, 255] and save as grayscale image
+        mag = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
+
+        # Resize the image to 112x112
+        mag_resized = cv2.resize(mag, (112, 112), interpolation=cv2.INTER_AREA)
+
+        cv2.imwrite(os.path.join(output_folder, f"{os.path.splitext(video_file)[0]}_{idx}.png"), mag_resized)
+
+    cap.release()
+
+def extract_frames(video_path, output_folder):
+    # Open the video file
+    video_capture = cv2.VideoCapture(video_path)
+    
+    # Get total number of frames in the video
+    total_frames = int(video_capture.get(cv2.CAP_PROP_FRAME_COUNT))
+    
+    # Define frame indices to extract
+    frame_indices = [0, total_frames // 4, total_frames // 2, (3 * total_frames) // 4, total_frames - 2]
+    
+    # Create output folder if it doesn't exist
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+    
+    # Extract frames at specified indices
+    for idx, frame_idx in enumerate(frame_indices):
+        video_capture.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+        success, frame = video_capture.read()
+        if success:
+            # Save frame to file
+            frame_name = os.path.splitext(os.path.basename(video_path))[0]
+            output_path = os.path.join(output_folder, f"{frame_name}_{idx * 25}.png")
+            cv2.imwrite(output_path, frame)
+    
+    # Release video capture
+    video_capture.release()
+
+def process_videos(input_folder, output_root):
+    # Iterate through all files and folders in input folder
+    for root, dirs, files in os.walk(input_folder):
+        for file in files:
+            if file.endswith('.avi'):  # Check if file is a video
+                video_path = os.path.join(root, file)
+                relative_folder = os.path.relpath(root, input_folder)
+                output_folder = os.path.join(output_root, relative_folder)
+                extract_frames(video_path, output_folder)
+
 keep_hmdb51 = ["clap", "climb", "drink", "jump", "pour", "ride_bike", "ride_horse", 
             "run", "shoot_bow", "smoke", "throw", "wave"]
 train_files, train_labels, test_files, test_labels = create_hmdb51_splits(keep_hmdb51)
 plot_distribution(train_labels, test_labels, keep_hmdb51)
 check_video_length(train_files, train_labels, test_files, test_labels, keep_hmdb51)
 check_frame_size(train_files, train_labels, test_files, test_labels, keep_hmdb51)
+
+if not os.path.exists("optical_flow_images"):
+    # Create optical flow images for training set
+    for i, (video_file, video_label) in tqdm(enumerate(zip(train_files, train_labels))):
+        video_path = os.path.join("video_data", video_label, video_file)
+        output_folder = os.path.join("optical_flow_images", video_label)
+        extract_optical_flow_and_save(video_path, output_folder)
+
+    # Create optical flow images for test set
+    for i, (video_file, video_label) in tqdm(enumerate(zip(test_files, test_labels))):
+        video_path = os.path.join("video_data", video_label, video_file)
+        output_folder = os.path.join("optical_flow_images", video_label)
+        extract_optical_flow_and_save(video_path, output_folder)
+
+if not os.path.exists("video_image_dataset"):
+    # Process videos
+    process_videos("video_data", "video_image_dataset")

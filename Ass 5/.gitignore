@@ -5,3 +5,5 @@ Stanford40/
 test_train_splits/
 video_data/
 photo_dataset/
+optical_flow_images/
+video_image_dataset/
