@@ -220,42 +220,55 @@ def balance_dataset(train_files, train_labels, dataset_path):
     label_counts = Counter(train_labels)
     max_count = max(label_counts.values())
 
-    train_files_augmented = train_files.copy()
-    train_labels_augmented = train_labels.copy()
+    # Initialize lists for augmented data
+    train_files_augmented = []
+    train_labels_augmented = []
 
     # To keep track of which images have been augmented
     already_augmented = set()
 
-    # Augment images for classes below max count
     for label, count in label_counts.items():
         if count < max_count:
-            # Find all files for the current label
-            files_to_augment = [file for file, lbl in zip(train_files, train_labels) if lbl == label]
-            num_augmentations_needed = max_count - count
-            
-            augmented_files = []
-            for _ in range(num_augmentations_needed):
-                for img_path in files_to_augment:
-                    if len(augmented_files) >= num_augmentations_needed:
-                        break
-                    # Skip images that have already been augmented
-                    if img_path in already_augmented:
-                        continue # Skip to the next iteration of the loop
+            augmentations_needed = max_count - count
+            files_for_label = [f for f, l in zip(train_files, train_labels) if l == label]
 
-                    aug_img = augment_image_randomly(os.path.join(dataset_path, img_path))
-                    
-                    # Construct a new filename for the augmented image
-                    base, extension = os.path.splitext(img_path)
-                    aug_img_path = f"{base}_augmented{extension}"
-                    aug_img.save(os.path.join(dataset_path, aug_img_path))
+            for file_path in files_for_label:
+                if augmentations_needed == 0:
+                    break
 
-                    augmented_files.append(aug_img_path)
-                    already_augmented.add(img_path)  # Mark this image as augmented
-            
-            # Extend the augmented lists with new files and labels
-            train_files_augmented.extend(augmented_files)
-            train_labels_augmented.extend([label] * len(augmented_files))
+                # Check if this file has already been augmented
+                if file_path in already_augmented:
+                    continue  # Skip to the next file
 
+                # Perform augmentation
+                augmented_image = augment_image_randomly(os.path.join(dataset_path, file_path))
+
+                # Construct a new filename for the augmented image
+                base, extension = os.path.splitext(file_path)
+                aug_file_name = f"{base}_augmented{extension}"
+                aug_full_path = os.path.join(dataset_path, aug_file_name)
+
+                # Save the augmented image
+                augmented_image.save(aug_full_path)
+
+                # Update the augmented lists
+                train_files_augmented.append(aug_file_name)  # Use full path if needed
+                train_labels_augmented.append(label)
+
+                # Mark this image as augmented
+                already_augmented.add(file_path)
+
+                augmentations_needed -= 1
+
+
+    #save in two text files the augmented files and labels
+    with open('augmented_files.txt', 'w') as f:
+        for item in train_files_augmented:
+            f.write("%s\n" % item)
+    with open('augmented_labels.txt', 'w') as f:
+        for item in train_labels_augmented:
+            f.write("%s\n" % item)
+                      
     return train_files_augmented, train_labels_augmented
 
 
@@ -303,6 +316,7 @@ train_files_augmented, train_labels_augmented = balance_dataset(train_files, tra
 
 # Check the distribution of the augmented dataset
 train_distribution_augmented, _ = check_distribution(train_files_augmented, train_labels_augmented, test_files, test_labels)
-plot_distribution(train_distribution_augmented, test_distribution)
+#print the size of the augmented dataset
+print(f"Size of the augmented dataset: {len(train_files_augmented)}")
 
 
