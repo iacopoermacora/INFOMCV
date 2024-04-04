@@ -71,34 +71,8 @@ class OpticalFlowDataset(Dataset):
 
         return np.stack(flow_stack)
 
-# FUNCTIONS
 
-def extract_optical_flow_and_save(video_path, output_folder):
-    cap = cv2.VideoCapture(video_path)
-    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-
-    os.makedirs(output_folder, exist_ok=True)
-
-    for i in range(1, frame_count, 16):  # Extract 16 evenly spaced frames
-        ret, frame1 = cap.read()
-        ret, frame2 = cap.read()
-        if not ret:
-            break
-
-        frame1_gray = cv2.cvtColor(frame1, cv2.COLOR_BGR2GRAY)
-        frame2_gray = cv2.cvtColor(frame2, cv2.COLOR_BGR2GRAY)
-
-        flow = cv2.calcOpticalFlowFarneback(frame1_gray, frame2_gray, None, 0.5, 3, 15, 3, 5, 1.2, 0)
-
-        # Calculate magnitude and angle
-        mag, _ = cv2.cartToPolar(flow[..., 0], flow[..., 1])
-
-        # Normalize magnitude to range [0, 255] and save as grayscale image
-        mag = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
-        cv2.imwrite(os.path.join(output_folder, f"{os.path.splitext(video_file)[0]}_{i}.png"), mag)
-
-    cap.release()
-
+# STANFORD40 DATASET
 
 # Create Stanford40 dataset
 stanford40_splits = create_stanford40_splits()
@@ -121,20 +95,10 @@ train_loader = DataLoader(train_data, batch_size=4, shuffle=True)
 validation_loader = DataLoader(validation_data, batch_size=4, shuffle=False)
 test_loader = DataLoader(test_dataset, batch_size=4, shuffle=False)
 print("Data loaders created successfully.")
-    
 
+# HMDB51 DATASET (FRAMES)
 
-# Create optical flow images for training set
-for i, video_file, video_label in enumerate(zip(train_files, train_labels)):
-    video_path = os.path.join("video_data", video_label, video_file)
-    output_folder = os.path.join("optical_flow_images", video_label)
-    extract_optical_flow_and_save(video_path, output_folder)
-
-# Create optical flow images for test set
-for i, video_file, video_label in enumerate(zip(test_files, test_labels)):
-    video_path = os.path.join("video_data", video_label, video_file)
-    output_folder = os.path.join("optical_flow_images", video_label)
-    extract_optical_flow_and_save(video_path, output_folder)
+# HMDB51 DATASET (OPTICAL FLOW)
 
 '''# Create custom dataset
 train_dataset = OpticalFlowDataset(train_files, train_labels, root_dir="optical_flow_images")
