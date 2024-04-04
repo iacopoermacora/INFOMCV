@@ -6,6 +6,7 @@ import os
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
 from imgaug import augmenters as iaa
+from imgaug import parameters as iap
 import random
 from PIL import Image
 
@@ -195,20 +196,21 @@ def resize_and_save_images(input_folder, output_folder, file_list, target_size=(
         cv2.imwrite(os.path.join(output_folder, filename), resized_img)
 
 def augment_image_randomly(image_path):
-    """Apply a random augmentation (crop, rotate, or color change) to an image."""
+    """Apply a randomly selected augmentation (crop, rotate, or color change) with higher dynamic parameters to an image."""
     image = Image.open(image_path)
     image_np = np.array(image)
 
-    # Define individual augmentations
-    crop = iaa.Crop(percent=(0, 0.1))  # Random crops
-    rotate = iaa.Affine(rotate=(-25, 25))  # Random rotation between -25 and 25 degrees
-    color_change = iaa.AddToHueAndSaturation((-50, 50))  # Change hue and saturation
+    # Define augmentations with higher degrees
+    augmentations = [
+        iaa.Crop(percent=(0, 0.3)),  # Larger random crops
+        iaa.Affine(rotate=iap.Uniform(-360, 360)),  # Higher range for rotation, between -90 and 90 degrees
+        iaa.AddToHueAndSaturation(iap.Uniform(-200, 200)),  # Greater adjustments to hue and saturation
+        iaa.Multiply((0.5, 1.5)),  # More significant changes in brightness
+    ]
 
-    # Randomly select one augmentation
-    augmentation = random.choice([crop, rotate, color_change])
-
-    # Apply the selected augmentation
-    image_aug = augmentation(image=image_np)
+    # Randomly select one of the augmentations
+    augmentation = random.choice(augmentations)
+    image_aug = augmentation.augment_image(image_np)
     
     return Image.fromarray(image_aug)
 
