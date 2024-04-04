@@ -7,6 +7,7 @@ from torchvision.io import read_image
 from torchvision.transforms import ToTensor
 from stanford40 import create_stanford40_splits
 
+# TODO: We need to import the correct labels, even better if we do it in the other general file
 # DATASETS
 class CustomStandford40Dataset(Dataset):
     def __init__(self, img_dir, file_paths, labels, transform=None):
@@ -35,6 +36,38 @@ class CustomStandford40Dataset(Dataset):
         image = read_image(img_path)
         if self.transform:
             image = self.transform(image)
+        return image, label
+
+class VideoFrameDataset(Dataset):
+    def __init__(self, files, labels, root_dir, frame_number, transform=None):
+        self.files = files
+        self.labels = labels
+        self.root_dir = root_dir
+        self.transform = transform
+        self.frame_number = frame_number
+
+    def __len__(self):
+        return len(self.files)
+
+    def __getitem__(self, idx):
+        video_filename = self.files[idx]
+        label = self.labels[idx]
+        
+        # Assuming video filename format is "name.avi"
+        video_name = os.path.splitext(video_filename)[0]
+        
+        # Constructing the image filename with frame_number suffix
+        image_filename = f"{video_name}_{self.frame_number}.png"
+        
+        # Constructing the full path to the image file
+        image_path = os.path.join(self.root_dir, label, image_filename)
+        
+        # Loading the image
+        image = read_image(image_path)
+        
+        if self.transform:
+            image = self.transform(image)
+        
         return image, label
 
 
@@ -96,15 +129,28 @@ validation_loader = DataLoader(validation_data, batch_size=4, shuffle=False)
 test_loader = DataLoader(test_dataset, batch_size=4, shuffle=False)
 print("Data loaders created successfully.")
 
+
+
+
+
 # HMDB51 DATASET (FRAMES)
+
+# Choose frame number between 0, 25, 50, 75, 100
+frame_number = 50
+train_dataset = VideoFrameDataset(train_files, train_labels, "video_image_dataset", frame_number, transform=ToTensor())
+test_dataset = VideoFrameDataset(test_files, test_labels, "video_image_dataset", frame_number, transform=ToTensor())
+
+
+
+
 
 # HMDB51 DATASET (OPTICAL FLOW)
 
-'''# Create custom dataset
+# Create custom dataset
 train_dataset = OpticalFlowDataset(train_files, train_labels, root_dir="optical_flow_images")
 test_dataset = OpticalFlowDataset(test_files, test_labels, root_dir="optical_flow_images")
 print(test_dataset.__getitem__(0))
 # Example usage of DataLoader
 train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)'''
+test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
 
