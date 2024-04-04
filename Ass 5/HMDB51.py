@@ -22,9 +22,11 @@ def create_hmdb51_splits(keep_hmdb51):
     split_pattern_path = os.path.join('test_train_splits', split_pattern_name)
     annotation_paths = glob.glob(split_pattern_path)
     for filepath in annotation_paths:
-        class_name = '_'.join(filepath.split('/')[-1].split('_')[:-2])
+        class_name = '_'.join(filepath.split('\\')[-1].split('_')[:-2]) # TODO: Change this line for MAC or Linux
         if class_name not in keep_hmdb51:
+            print(f"Skipping {class_name}")
             continue  # skipping the classes that we won't use.
+        print(f"Processing {class_name}")
         with open(filepath) as fid:
             lines = fid.readlines()
         for line in lines:
