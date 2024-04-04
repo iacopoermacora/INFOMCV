@@ -5,6 +5,9 @@ import matplotlib.pyplot as plt
 import os
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
+from imgaug import augmenters as iaa
+import random
+from PIL import Image
 
 def create_stanford40_splits():
     # STANFORD 40 DATASET
@@ -191,6 +194,68 @@ def resize_and_save_images(input_folder, output_folder, file_list, target_size=(
         # Save the resized image to the output folder
         cv2.imwrite(os.path.join(output_folder, filename), resized_img)
 
+def augment_image_randomly(image_path):
+    """Apply a random augmentation (crop, rotate, or color change) to an image."""
+    image = Image.open(image_path)
+    image_np = np.array(image)
+
+    # Define individual augmentations
+    crop = iaa.Crop(percent=(0, 0.1))  # Random crops
+    rotate = iaa.Affine(rotate=(-25, 25))  # Random rotation between -25 and 25 degrees
+    color_change = iaa.AddToHueAndSaturation((-50, 50))  # Change hue and saturation
+
+    # Randomly select one augmentation
+    augmentation = random.choice([crop, rotate, color_change])
+
+    # Apply the selected augmentation
+    image_aug = augmentation(image=image_np)
+    
+    return Image.fromarray(image_aug)
+
+
+def balance_dataset(train_files, train_labels, dataset_path):
+    # Count occurrences of each class
+    label_counts = Counter(train_labels)
+    max_count = max(label_counts.values())
+
+    train_files_augmented = train_files.copy()
+    train_labels_augmented = train_labels.copy()
+
+    # To keep track of which images have been augmented
+    already_augmented = set()
+
+    # Augment images for classes below max count
+    for label, count in label_counts.items():
+        if count < max_count:
+            # Find all files for the current label
+            files_to_augment = [file for file, lbl in zip(train_files, train_labels) if lbl == label]
+            num_augmentations_needed = max_count - count
+            
+            augmented_files = []
+            for _ in range(num_augmentations_needed):
+                for img_path in files_to_augment:
+                    if len(augmented_files) >= num_augmentations_needed:
+                        break
+                    # Skip images that have already been augmented
+                    if img_path in already_augmented:
+                        continue # Skip to the next iteration of the loop
+
+                    aug_img = augment_image_randomly(os.path.join(dataset_path, img_path))
+                    
+                    # Construct a new filename for the augmented image
+                    base, extension = os.path.splitext(img_path)
+                    aug_img_path = f"{base}_augmented{extension}"
+                    aug_img.save(os.path.join(dataset_path, aug_img_path))
+
+                    augmented_files.append(aug_img_path)
+                    already_augmented.add(img_path)  # Mark this image as augmented
+            
+            # Extend the augmented lists with new files and labels
+            train_files_augmented.extend(augmented_files)
+            train_labels_augmented.extend([label] * len(augmented_files))
+
+    return train_files_augmented, train_labels_augmented
+
 
 train_files, train_labels, test_files, test_labels = create_stanford40_splits()
 train_distribution, test_distribution = check_distribution(train_files, train_labels, test_files, test_labels)
@@ -229,3 +294,13 @@ resize_and_save_images(input_folder, output_folder_train, train_files)
 
 # Resize and save test images
 resize_and_save_images(input_folder, output_folder_test, test_files)
+
+# Balance the dataset
+train_files_augmented, train_labels_augmented = balance_dataset(train_files, train_labels, "photo_dataset/train")
+
+
+# Check the distribution of the augmented dataset
+train_distribution_augmented, _ = check_distribution(train_files_augmented, train_labels_augmented, test_files, test_labels)
+plot_distribution(train_distribution_augmented, test_distribution)
+
+
