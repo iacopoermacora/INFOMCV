@@ -4,6 +4,7 @@ from collections import Counter
 import matplotlib.pyplot as plt
 import cv2
 from tqdm import tqdm
+import settings
 
 # HMDB51 DATASET
 def create_hmdb51_splits(keep_hmdb51):
@@ -23,7 +24,7 @@ def create_hmdb51_splits(keep_hmdb51):
     split_pattern_path = os.path.join('test_train_splits', split_pattern_name)
     annotation_paths = glob.glob(split_pattern_path)
     for filepath in annotation_paths:
-        class_name = '_'.join(filepath.split('/')[-1].split('_')[:-2]) # TODO: Change this line for MAC or Linux
+        class_name = '_'.join(filepath.split(settings.FOLDER_PATH_CONVENTION)[-1].split('_')[:-2]) # TODO: Change this line for MAC or Linux
         if class_name not in keep_hmdb51:
             print(f"Skipping {class_name}")
             continue  # skipping the classes that we won't use.
@@ -205,7 +206,7 @@ def extract_optical_flow_and_save(video_path, output_folder):
 
         flow = cv2.calcOpticalFlowFarneback(frame1_gray, frame2_gray, None, 0.5, 3, 15, 3, 5, 1.2, 0)
 
-        # Calculate magnitude and angle
+        '''# Calculate magnitude and angle
         mag, _ = cv2.cartToPolar(flow[..., 0], flow[..., 1])
 
         # Normalize magnitude to range [0, 255] and save as grayscale image
@@ -214,7 +215,22 @@ def extract_optical_flow_and_save(video_path, output_folder):
         # Resize the image to 112x112
         mag_resized = cv2.resize(mag, (112, 112), interpolation=cv2.INTER_AREA)
 
-        cv2.imwrite(os.path.join(output_folder, f"{os.path.splitext(video_file)[0]}_{idx}.png"), mag_resized)
+        cv2.imwrite(os.path.join(output_folder, f"{os.path.splitext(video_file)[0]}_{idx}.png"), mag_resized)'''
+
+        # Separate u and v displacements
+        u, v = flow[..., 0], flow[..., 1]
+
+        # Normalize u and v to range [0, 255] and save as grayscale images
+        u_normalized = cv2.normalize(u, None, 0, 255, cv2.NORM_MINMAX)
+        v_normalized = cv2.normalize(v, None, 0, 255, cv2.NORM_MINMAX)
+
+        # Resize the images to 112x112
+        u_resized = cv2.resize(u_normalized, (112, 112), interpolation=cv2.INTER_AREA)
+        v_resized = cv2.resize(v_normalized, (112, 112), interpolation=cv2.INTER_AREA)
+
+        # Save u and v displacement images
+        cv2.imwrite(os.path.join(output_folder, f"{os.path.splitext(os.path.basename(video_path))[0]}_{idx}_u.png"), u_resized)
+        cv2.imwrite(os.path.join(output_folder, f"{os.path.splitext(os.path.basename(video_path))[0]}_{idx}_v.png"), v_resized)
 
     cap.release()
 
