@@ -209,15 +209,6 @@ def balance_dataset(train_files, train_labels, dataset_path):
     label_counts = Counter(train_labels)
     max_count = max(label_counts.values())
 
-    # Check if the dataset has been already augmented
-    if os.path.exists('augmented_files.txt') and os.path.exists('augmented_labels.txt'):
-        print("Dataset already augmented. Skipping...")
-        with open('augmented_files.txt', 'r') as f:
-            train_files_augmented = f.read().splitlines()
-        with open('augmented_labels.txt', 'r') as f:
-            train_labels_augmented = f.read().splitlines()
-        return train_files_augmented, train_labels_augmented
-
     # Initialize lists for augmented data
     train_files_augmented = []
     train_labels_augmented = []

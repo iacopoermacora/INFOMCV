@@ -245,7 +245,7 @@ def extract_frames(video_path, output_folder):
     # Release video capture
     video_capture.release()
 
-def get_images_from_video(input_folder, output_root):
+def process_videos(input_folder, output_root):
     # Iterate through all files and folders in input folder
     for root, dirs, files in os.walk(input_folder):
         for file in files:
@@ -265,20 +265,20 @@ check_video_length(train_files, train_labels, test_files, test_labels, keep_hmdb
 check_frame_size(train_files, train_labels, test_files, test_labels, keep_hmdb51)
 
 # Extract optical flow images
-if not os.path.exists("video_OF_dataset"):
+if not os.path.exists("optical_flow_images"):
     # Create optical flow images for training set
     for i, (video_file, video_label) in tqdm(enumerate(zip(train_files, train_labels))):
         video_path = os.path.join("video_data", video_label, video_file)
-        output_folder = os.path.join("video_OF_dataset", video_label)
+        output_folder = os.path.join("optical_flow_images", video_label)
         extract_optical_flow_and_save(video_path, output_folder)
 
     # Create optical flow images for test set
     for i, (video_file, video_label) in tqdm(enumerate(zip(test_files, test_labels))):
         video_path = os.path.join("video_data", video_label, video_file)
-        output_folder = os.path.join("video_OF_dataset", video_label)
+        output_folder = os.path.join("optical_flow_images", video_label)
         extract_optical_flow_and_save(video_path, output_folder)
 
 # Extract frames
 if not os.path.exists("video_image_dataset"):
     # Process videos
-    get_images_from_video("video_data", "video_image_dataset")
+    process_videos("video_data", "video_image_dataset")
