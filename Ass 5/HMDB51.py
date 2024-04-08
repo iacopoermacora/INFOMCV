@@ -258,10 +258,13 @@ def process_videos(input_folder, output_root):
 keep_hmdb51 = ["clap", "climb", "drink", "jump", "pour", "ride_bike", "ride_horse", 
             "run", "shoot_bow", "smoke", "throw", "wave"]
 train_files, train_labels, test_files, test_labels = create_hmdb51_splits(keep_hmdb51)
+
+# Perform data analysis
 plot_distribution(train_labels, test_labels, keep_hmdb51)
 check_video_length(train_files, train_labels, test_files, test_labels, keep_hmdb51)
 check_frame_size(train_files, train_labels, test_files, test_labels, keep_hmdb51)
 
+# Extract optical flow images
 if not os.path.exists("optical_flow_images"):
     # Create optical flow images for training set
     for i, (video_file, video_label) in tqdm(enumerate(zip(train_files, train_labels))):
@@ -275,6 +278,7 @@ if not os.path.exists("optical_flow_images"):
         output_folder = os.path.join("optical_flow_images", video_label)
         extract_optical_flow_and_save(video_path, output_folder)
 
+# Extract frames
 if not os.path.exists("video_image_dataset"):
     # Process videos
     process_videos("video_data", "video_image_dataset")

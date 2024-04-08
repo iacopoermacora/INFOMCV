@@ -8,7 +8,10 @@ from torchvision.transforms import ToTensor
 from stanford40 import create_stanford40_splits
 
 # TODO: We need to import the correct labels, even better if we do it in the other general file
+
 # DATASETS
+
+# Custom dataset class for Stanford40 dataset
 class CustomStandford40Dataset(Dataset):
     def __init__(self, img_dir, file_paths, labels, transform=None):
         """
@@ -38,6 +41,7 @@ class CustomStandford40Dataset(Dataset):
             image = self.transform(image)
         return image, label
 
+# Custom dataset class for HMDB51 dataset (images)
 class VideoFrameDataset(Dataset):
     def __init__(self, files, labels, root_dir, frame_number, transform=None):
         self.files = files
@@ -70,7 +74,7 @@ class VideoFrameDataset(Dataset):
         
         return image, label
 
-
+# Custom dataset class for HMDB51 dataset (optical flow)
 class OpticalFlowDataset(Dataset):
     def __init__(self, file_paths, labels, root_dir, transform=None):
         self.file_paths = file_paths
@@ -104,6 +108,7 @@ class OpticalFlowDataset(Dataset):
 
         return np.stack(flow_stack)
 
+# TODO: Implement the custom dataset class for the two-stream dataset
 
 # STANFORD40 DATASET
 

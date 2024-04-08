@@ -57,7 +57,7 @@ def check_distribution(train_files, train_labels, test_files, test_labels):
         print(f"{label}: {count}")
     return train_distribution, test_distribution
 
-def plot_distribution(train_distribution, test_distribution):
+def plot_distribution(train_distribution, test_distribution, name):
     # Convert distributions to lists for plotting
     train_labels_list, train_counts = zip(*train_distribution.items())
     test_labels_list, test_counts = zip(*test_distribution.items())
@@ -84,7 +84,7 @@ def plot_distribution(train_distribution, test_distribution):
     plt.xticks(rotation=45, ha='right')
     plt.legend()
     plt.tight_layout()
-    plt.savefig("plots/dataset_distributions/stanford40_distribution.png")
+    plt.savefig(f"plots/dataset_distributions/{name}.png")
 
 def show_image(image_no, train_files, train_labels):
     # Change image_no to a number between [0, 1200] and you can see a different training image
@@ -101,23 +101,6 @@ def check_image_sizes(file_paths):
         img = cv2.imread(file_path)
         sizes.add(img.shape[:2])  # Considering only height and width
     return sizes
-
-# Function to preprocess images
-def preprocess_images(file_paths, target_size=(100, 100)):
-    preprocessed_images = []
-    corrupted_images = []
-    for file_path in file_paths:
-        img = cv2.imread(file_path)
-        if img is not None:
-            # # Resize image to target size
-            # img_resized = cv2.resize(img, target_size)
-            # # Normalize image (optional)
-            # img_normalized = img_resized.astype(np.float32) / 255.0
-            # preprocessed_images.append(img_normalized)
-            a = 1
-        else:
-            corrupted_images.append(file_path)
-    return preprocessed_images, corrupted_images
 
 # Function to check image sizes and find the smallest image
 def find_smallest_image(file_paths):
@@ -148,6 +131,9 @@ def get_image_dimensions(file_paths):
         return dimensions
 
 def plot_image_dimensions_distribution(train_file_paths, test_file_paths):
+    if os.path.exists("plots/dataset_distributions/stanford40_frame_size_distribution.png"):
+        print("Image size distribution plot already exists. Skipping...")
+        return
     # Directory containing images
     all_file_paths = train_file_paths + test_file_paths
 
@@ -183,6 +169,9 @@ def resize_and_save_images(input_folder, output_folder, file_list, target_size=(
     # Create the output folder if it doesn't exist
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
+    else:
+        print("Output folder already exists. Skipping resizing.")
+        return
     
     # Loop through each file in the file list
     for filename in file_list:
@@ -273,8 +262,11 @@ def balance_dataset(train_files, train_labels, dataset_path):
 
 
 train_files, train_labels, test_files, test_labels = create_stanford40_splits()
+
+# Perform data and distribution analysis
+
 train_distribution, test_distribution = check_distribution(train_files, train_labels, test_files, test_labels)
-plot_distribution(train_distribution, test_distribution)
+plot_distribution(train_distribution, test_distribution, "standfor40_class_distribution")
 '''show_image(234, train_files, train_labels)'''
 
 # Directory containing images
@@ -310,13 +302,15 @@ resize_and_save_images(input_folder, output_folder_train, train_files)
 # Resize and save test images
 resize_and_save_images(input_folder, output_folder_test, test_files)
 
-# Balance the dataset
+# Balance the dataset TODO: is there a check that do not augment if it was already augmented?
 train_files_augmented, train_labels_augmented = balance_dataset(train_files, train_labels, "photo_dataset/train")
 
-
 # Check the distribution of the augmented dataset
+# TODO: concatenate the augmented files with the original files
+print("Distribution after augmentation: ")
 train_distribution_augmented, _ = check_distribution(train_files_augmented, train_labels_augmented, test_files, test_labels)
 #print the size of the augmented dataset
 print(f"Size of the augmented dataset: {len(train_files_augmented)}")
+plot_distribution(train_distribution_augmented, test_distribution, "standfor40_augmented_class_distribution")
 
 
