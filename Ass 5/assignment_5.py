@@ -5,6 +5,7 @@ import torch.optim as optim
 from train import initialize_model, train_and_validate, plot_metrics, plot_confusion_matrix
 from torch.optim.lr_scheduler import CyclicLR, StepLR
 import settings
+import matplotlib.pyplot as plt
 
 
 # Train and test files for model 1
@@ -30,6 +31,8 @@ train_losses, val_losses, train_accuracies, val_accuracies = train_and_validate(
 
 # Plot the training and validation losses and accuracies
 plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies)
+# save metrics plot
+plt.savefig('metrics_plot.png')
 
 
 

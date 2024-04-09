@@ -98,8 +98,8 @@ def train_and_validate(model, train_loader, validation_loader, optimizer, schedu
         for epoch in range(num_epochs):
             f.write(f'Epoch [{epoch+1}/{num_epochs}], Train Loss: {train_losses[epoch]:.4f}, Val Loss: {val_losses[epoch]:.4f}, Train Acc: {train_accuracies[epoch]:.4f}, Val Acc: {val_accuracies[epoch]:.4f}\n')
     
-    # save confusion matrix
-    np.savetxt(f'plots/{model.__class__.__name__}_confusion_matrix.txt', cm, fmt='%d')
+    # save confusion matrix plot
+    plt.savefig(f'plots/{model.__class__.__name__}_confusion_matrix.png')
 
     return train_losses, val_losses, train_accuracies, val_accuracies
 
