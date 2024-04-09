@@ -9,6 +9,7 @@ from imgaug import augmenters as iaa
 from imgaug import parameters as iap
 import random
 from PIL import Image
+import settings
 
 def create_stanford40_splits():
     # STANFORD 40 DATASET
@@ -284,32 +285,32 @@ def balance_dataset(train_files, train_labels, dataset_path):
 train_files, train_labels, test_files, test_labels = create_stanford40_splits()
 
 # Perform data and distribution analysis
+if settings.DATA_ANALYSIS:
+    train_distribution, test_distribution = check_distribution(train_files, train_labels, test_files, test_labels)
+    plot_distribution(train_distribution, test_distribution, "standfor40_class_distribution")
+    '''show_image(234, train_files, train_labels)'''
 
-train_distribution, test_distribution = check_distribution(train_files, train_labels, test_files, test_labels)
-plot_distribution(train_distribution, test_distribution, "standfor40_class_distribution")
-'''show_image(234, train_files, train_labels)'''
+    # Directory containing images
+    image_dir = 'Stanford40/JPEGImages/'
+    train_file_paths = [os.path.join(image_dir, file_name) for file_name in train_files]
+    test_file_paths = [os.path.join(image_dir, file_name) for file_name in test_files]
 
-# Directory containing images
-image_dir = 'Stanford40/JPEGImages/'
-train_file_paths = [os.path.join(image_dir, file_name) for file_name in train_files]
-test_file_paths = [os.path.join(image_dir, file_name) for file_name in test_files]
+    # Image size analysis
+    train_image_sizes = check_image_sizes(train_file_paths)
+    test_image_sizes = check_image_sizes(test_file_paths)
 
-# Image size analysis
-train_image_sizes = check_image_sizes(train_file_paths)
-test_image_sizes = check_image_sizes(test_file_paths)
+    print("Train Image Sizes:", train_image_sizes)
+    print("Test Image Sizes:", test_image_sizes)
 
-print("Train Image Sizes:", train_image_sizes)
-print("Test Image Sizes:", test_image_sizes)
+    all_file_paths = train_file_paths + test_file_paths
 
-all_file_paths = train_file_paths + test_file_paths
+    # Find smallest image in the dataset
+    smallest_image_path, smallest_height, smallest_width = find_smallest_image(all_file_paths)
 
-# Find smallest image in the dataset
-smallest_image_path, smallest_height, smallest_width = find_smallest_image(all_file_paths)
+    print("Smallest Image Path:", smallest_image_path)
+    print("Smallest Image Size:", smallest_height, smallest_width)
 
-print("Smallest Image Path:", smallest_image_path)
-print("Smallest Image Size:", smallest_height, smallest_width)
-
-plot_image_dimensions_distribution(train_file_paths, test_file_paths)
+    plot_image_dimensions_distribution(train_file_paths, test_file_paths)
 
 # Paths to the input and output folders
 input_folder = "Stanford40/JPEGImages"
@@ -325,12 +326,12 @@ resize_and_save_images(input_folder, output_folder_test, test_files)
 # Balance the dataset TODO: is there a check that do not augment if it was already augmented?
 train_files_augmented, train_labels_augmented = balance_dataset(train_files, train_labels, "photo_dataset/train")
 
-# Check the distribution of the augmented dataset
-# TODO: concatenate the augmented files with the original files
-print("Distribution after augmentation: ")
-train_distribution_augmented, _ = check_distribution(train_files_augmented + train_files, train_labels_augmented + train_labels, test_files, test_labels)
-#print the size of the augmented dataset
-print(f"Size of the augmented dataset: {len(train_files_augmented)}")
-plot_distribution(train_distribution_augmented, test_distribution, "standfor40_augmented_class_distribution")
+if settings.DATA_ANALYSIS:
+    # Check the distribution of the augmented dataset
+    print("Distribution after augmentation: ")
+    train_distribution_augmented, _ = check_distribution(train_files_augmented + train_files, train_labels_augmented + train_labels, test_files, test_labels)
+    #print the size of the augmented dataset
+    print(f"Size of the augmented dataset: {len(train_files_augmented)}")
+    plot_distribution(train_distribution_augmented, test_distribution, "standfor40_augmented_class_distribution")
 
 

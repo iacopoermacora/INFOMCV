@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import itertools
 from sklearn.metrics import confusion_matrix
+from tqdm import tqdm
 
 
 def initialize_model(model_class):
@@ -18,18 +19,18 @@ def initialize_model(model_class):
     return model
 
 def train_and_validate(model, train_loader, validation_loader, optimizer, scheduler, criteria, num_epochs):
-    device = torch.device("cpu")
-    model.to("cpu")
+    # device = torch.device("cpu")
+    # model.to("cpu")
     
     train_losses, val_losses, train_accuracies, val_accuracies = [], [], [], []
     learning_rates = []
 
-    for epoch in range(num_epochs):
+    for epoch in tqdm(range(num_epochs)):
         model.train()
         total_train_loss, total_train_correct, total_train_samples = 0, 0, 0
         
-        for inputs, labels in train_loader:
-            inputs, labels = inputs.to(device), labels.to(device)
+        for inputs, labels in tqdm(train_loader):
+            # inputs, labels = inputs.to(device), labels.to(device)
             optimizer.zero_grad()
             outputs = model(inputs)
             loss = criteria(outputs, labels)
@@ -61,8 +62,8 @@ def train_and_validate(model, train_loader, validation_loader, optimizer, schedu
         total_val_loss, total_val_correct, total_val_samples = 0, 0, 0
         all_preds, all_true = [], []
         with torch.no_grad():
-            for inputs, labels in validation_loader:
-                inputs, labels = inputs.to(device), labels.to(device)
+            for inputs, labels in tqdm(validation_loader):
+                # inputs, labels = inputs.to(device), labels.to(device)
                 outputs = model(inputs)
                 val_loss = criteria(outputs, labels)
                 

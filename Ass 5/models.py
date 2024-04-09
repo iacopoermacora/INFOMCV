@@ -7,7 +7,7 @@ import torchvision.models as models
 
 def Stanford40_model(num_classes=12):
     # Load the pre-trained ResNet-50 model
-    model = models.resnet50(pretrained=True)
+    model = models.resnet50(weights='ResNet50_Weights.DEFAULT')
     
     # Modify the output layer to have num_classes classes
     num_ftrs = model.fc.in_features

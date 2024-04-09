@@ -6,6 +6,8 @@ from torch.utils.data import Dataset, DataLoader, random_split
 from torchvision.io import read_image
 from torchvision.transforms import ToTensor
 from stanford40 import create_stanford40_splits
+from PIL import Image
+import torch
 
 # TODO: We need to import the correct labels, even better if we do it in the other general file
 
@@ -24,6 +26,20 @@ class CustomStandford40Dataset(Dataset):
         self.img_dir = img_dir
         self.file_paths = file_paths
         self.labels = labels
+        self.label_map = {
+            "applauding": 0,
+            "climbing": 1,
+            "drinking": 2,
+            "jumping": 3,
+            "pouring_liquid": 4,
+            "riding_a_bike": 5,
+            "riding_a_horse": 6,
+            "running": 7,
+            "shooting_an_arrow": 8,
+            "smoking": 9,
+            "throwing_frisby": 10,
+            "waving_hands": 11
+        }
         self.transform = transform
         # Map each file path to its label
         self.file_label_map = {file_path: label for file_path, label in zip(file_paths, labels)}
@@ -35,11 +51,13 @@ class CustomStandford40Dataset(Dataset):
         # Use the idx to get the file path and then find its corresponding label from the map
         file_path = self.file_paths[idx]
         label = self.file_label_map[file_path]
+        label_idx = self.label_map[label]
         img_path = os.path.join(self.img_dir, file_path)
-        image = read_image(img_path)
+        image = Image.open(img_path).convert('RGB')
         if self.transform:
             image = self.transform(image)
-        return image, label
+        label_tensor = torch.tensor(label_idx, dtype=torch.long)
+        return image, label_tensor
 
 # Custom dataset class for HMDB51 dataset (images)
 class VideoFrameDataset(Dataset):

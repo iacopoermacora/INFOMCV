@@ -11,20 +11,17 @@ from datasets import CustomStandford40Dataset
 from torch.utils.data import Dataset, DataLoader, random_split
 from torchvision.transforms import ToTensor
 
-
 # Create Stanford40 dataset
 train_files, train_labels, test_files, test_labels = create_stanford40_splits()
 
 # Read the files from the augmented_files.txt file
 with open('augmented_files.txt', 'r') as f:
-    augmented_files = f.readlines()
-    augmented_files = [x.strip() for x in augmented_files]
+    augmented_files = [line.strip() for line in f]
 train_files = train_files + augmented_files
 
 # Read the labels from the augmented_labels.txt file
 with open('augmented_labels.txt', 'r') as f:
-    augmented_labels = f.readlines()
-    augmented_labels = [int(x.strip()) for x in augmented_labels]
+    augmented_labels = [line.strip() for line in f]
 train_labels = train_labels + augmented_labels
 
 # Create custom dataset
@@ -46,32 +43,27 @@ test_loader = DataLoader(test_dataset, batch_size=4, shuffle=False)
 print("Data loaders created successfully.")
 
 
-models = [Stanford40_model(), HMDB51_model()]
 
-for i in range(len(models)):
-    # Initialize model, loss function, and optimizer
-    model = initialize_model(models[i])
+# FIRST MODEL
+
+# Initialize model, loss function, and optimizer
+model = Stanford40_model()
+criteria = nn.CrossEntropyLoss()
+
+# set learning rate scheduler that decreases the learning rate by a factor of 0.5 every 5 epochs or cyclitic learning rate
+if (settings.LR_SCHEDULER_TYPE) == 'dynamic':
     optimizer = optim.Adam(model.parameters(), lr=0.001)
-    criteria = nn.CrossEntropyLoss()
+    # Use StepLR for dynamic learning rate adjustments
+    scheduler = StepLR(optimizer, step_size=5, gamma=0.5)
+elif (settings.LR_SCHEDULER_TYPE) == 'cyclic':
+    optimizer = optim.SGD(model.parameters(), lr=0.001)
+    # Use CyclicLR for cyclic learning rate adjustments
+    scheduler = CyclicLR(optimizer, base_lr=0.001, max_lr=0.1, step_size_up=25)
+else:
+    raise ValueError("Invalid learning rate schedule type specified.")
 
-    # set learning rate scheduler that decreases the learning rate by a factor of 0.5 every 5 epochs or cyclitic learning rate
-    if (settings.LR_SCHEDULER_TYPE) == 'dynamic':
-        # Use StepLR for dynamic learning rate adjustments
-        scheduler = StepLR(optimizer, step_size=5, gamma=0.5)
-    elif (settings.LR_SCHEDULER_TYPE) == 'cyclic':
-        # Use CyclicLR for cyclic learning rate adjustments
-        scheduler = CyclicLR(optimizer, base_lr=0.001, max_lr=0.1, step_size_up=25)
-    else:
-        raise ValueError("Invalid learning rate schedule type specified.")
+# Train the model
+train_losses, val_losses, train_accuracies, val_accuracies = train_and_validate(model, train_loader, validation_loader, optimizer, scheduler, criteria, num_epochs=5)
 
-    # Train the model
-    train_losses, val_losses, train_accuracies, val_accuracies = train_and_validate(model, train_loader, validation_loader, optimizer, scheduler, criteria, num_epochs=5)
-
-    # Plot the training and validation losses and accuracies
-    plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies, model.__class__.__name__)
-
-
-'''# Train and test files for model 2, 3 and 4
-keep_hmdb51 = ["clap", "climb", "drink", "jump", "pour", "ride_bike", "ride_horse", 
-            "run", "shoot_bow", "smoke", "throw", "wave"]
-train_files, train_labels, test_files, test_labels = create_hmdb51_splits(keep_hmdb51)'''
+# Plot the training and validation losses and accuracies
+plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies, model.__class__.__name__)
