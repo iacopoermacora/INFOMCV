@@ -21,6 +21,9 @@ def initialize_model(model_class):
 def train_and_validate(model, train_loader, validation_loader, optimizer, scheduler, criteria, num_epochs):
     # device = torch.device("cpu")
     # model.to("cpu")
+
+    print("#"*50)
+    print(f"Training {model.__class__.__name__} model")
     
     train_losses, val_losses, train_accuracies, val_accuracies = [], [], [], []
     learning_rates = []
@@ -99,7 +102,7 @@ def train_and_validate(model, train_loader, validation_loader, optimizer, schedu
 
 
     # Save the model
-    torch.save(model.state_dict(), 'model.pth')
+    torch.save(model.state_dict(), f'{model.__class__.__name__}.pth')
 
     # save txt file with the model's train and validation losses and accuracies for each epoch
     with open(f'plots/{model.__class__.__name__}_losses_accuracies.txt', 'a') as f:
