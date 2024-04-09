@@ -58,6 +58,13 @@ def check_distribution(train_files, train_labels, test_files, test_labels):
     return train_distribution, test_distribution
 
 def plot_distribution(train_distribution, test_distribution, name):
+    if os.path.exists(f"plots/dataset_distributions/{name}.png"):
+        print(f"Dataset distribution plot {name} already exists. Skipping...")
+        return
+    
+    if not os.path.exists("plots/dataset_distributions"):
+        os.makedirs("plots/dataset_distributions")
+
     # Convert distributions to lists for plotting
     train_labels_list, train_counts = zip(*train_distribution.items())
     test_labels_list, test_counts = zip(*test_distribution.items())
@@ -69,8 +76,8 @@ def plot_distribution(train_distribution, test_distribution, name):
     total_count = sum(total_data)
 
     # Plotting bars
-    plt.bar(train_labels_list, total_data, color='blue', alpha=0.7, label='Train')
-    plt.bar(test_labels_list, test_counts, color='red', alpha=0.7, label='Test')
+    plt.bar(test_labels_list, total_data, color='red', alpha=0.7, label='Test')
+    plt.bar(train_labels_list, train_counts, color='blue', alpha=0.7, label='Train')
 
     # Adding percentages
     for i, count in enumerate(total_data):
@@ -134,6 +141,10 @@ def plot_image_dimensions_distribution(train_file_paths, test_file_paths):
     if os.path.exists("plots/dataset_distributions/stanford40_frame_size_distribution.png"):
         print("Image size distribution plot already exists. Skipping...")
         return
+    
+    if not os.path.exists("plots/dataset_distributions"):
+        os.makedirs("plots/dataset_distributions")
+
     # Directory containing images
     all_file_paths = train_file_paths + test_file_paths
 
@@ -165,7 +176,7 @@ def plot_image_dimensions_distribution(train_file_paths, test_file_paths):
     plt.savefig("plots/dataset_distributions/stanford40_frame_size_distribution.png") 
 
 # Function to resize images and save them to a new directory
-def resize_and_save_images(input_folder, output_folder, file_list, target_size=(112, 112)):
+def resize_and_save_images(input_folder, output_folder, file_list, target_size=(224, 224)):
     # Create the output folder if it doesn't exist
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
@@ -317,7 +328,7 @@ train_files_augmented, train_labels_augmented = balance_dataset(train_files, tra
 # Check the distribution of the augmented dataset
 # TODO: concatenate the augmented files with the original files
 print("Distribution after augmentation: ")
-train_distribution_augmented, _ = check_distribution(train_files_augmented, train_labels_augmented, test_files, test_labels)
+train_distribution_augmented, _ = check_distribution(train_files_augmented + train_files, train_labels_augmented + train_labels, test_files, test_labels)
 #print the size of the augmented dataset
 print(f"Size of the augmented dataset: {len(train_files_augmented)}")
 plot_distribution(train_distribution_augmented, test_distribution, "standfor40_augmented_class_distribution")

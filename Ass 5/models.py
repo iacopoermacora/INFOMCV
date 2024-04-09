@@ -1,13 +1,90 @@
-# MODELS TO DEVELOP
+import torch
+from torchsummary import summary
+import torch.nn as nn
+import torchvision.models as models
 
 # 1. Stanford 40 – Frames: Create a CNN and train it on the images in Stanford 40. Naturally, you will have 12 output classes.
+
+def Stanford40_model(num_classes=12):
+    # Load the pre-trained ResNet-50 model
+    model = models.resnet50(pretrained=True)
+    
+    # Modify the output layer to have num_classes classes
+    num_ftrs = model.fc.in_features
+    model.fc = nn.Linear(num_ftrs, num_classes)
+    
+    return model
 
 # 2. HMDB51 – Frames (transfer learning): Use your pretrained CNN (same architecture/weights) and fine-tune it on the middle 
 #    frame of videos of the HMDB51 dataset. You can use a different learning rate than for the Stanford 40 network training.
 
+def HMDB51_model():
+    # Load the pre-trained stanford40 model from the standford40.pth file
+    model = torch.load('stanford40.pth')
+
+    freeze = True
+    for name, param in model.named_parameters():
+        if freeze and 'layer4' not in name:  # Change 'bottleneck.162' accordingly
+            param.requires_grad = False
+        else:
+            freeze = False
+    
+    # Check which layers are frozen
+    for name, param in model.named_parameters():
+        print(name, param.requires_grad)
+    
+    return model
+
 # 3. HMDB51 – Optical flow: Create a new CNN and train it on the optical flow of videos in HMBD51. You can use the middle frame
 #    (max 5 points) or stack a fixed number (e.g., 16) of optical flow frames together (max 10 points).
+
+class model_HMDB51_OF(nn.Module):
+    def __init__(self):
+        super(model_HMDB51_OF, self).__init__()
+        self.conv1 = nn.Sequential(
+            nn.Conv2d(in_channels=32, out_channels=96, kernel_size=7, stride=2), # TODO: Change in_channels accordingly
+            nn.BatchNorm2d(96),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2)
+        )
+        self.conv2 = nn.Sequential(
+            nn.Conv2d(in_channels=96, out_channels=256, kernel_size=5, stride=2),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2)
+        )
+        self.conv3 = nn.Conv2d(in_channels=256, out_channels=512, kernel_size=3, stride=1, padding=1)
+        self.conv4 = nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, stride=1, padding=1)
+        self.conv5 = nn.Sequential(
+            nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2)
+        )
+        self.full6 = nn.Sequential(
+            nn.Linear(512*7*7, 4096),
+            nn.ReLU(),
+            nn.Dropout(p=0.5)
+        )
+        self.full7 = nn.Sequential(
+            nn.Linear(4096, 2048),
+            nn.ReLU(),
+            nn.Dropout(p=0.5)
+        )
+        self.softmax = nn.Linear(2048, 12)  # Assuming num_classes is defined
+        
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.conv2(x)
+        x = self.conv3(x)
+        x = self.conv4(x)
+        x = self.conv5(x)
+        x = x.view(x.size(0), -1)  # Flatten the output of conv5 for FC layers
+        x = self.full6(x)
+        x = self.full7(x)
+        x = self.softmax(x)
+        return x
+
 
 # 4. HMDB51 – Two-stream: Finally, create a two-stream CNN with one stream for the frames and one stream for the optical flow. 
 #    Use your pre-trained CNNs to initialize the weights of the two branches. Think about how to fuse the two streams and motivate 
 #    this in your report. Look at the Q&A at the end of this assignment. Fine-tune the network.
+
