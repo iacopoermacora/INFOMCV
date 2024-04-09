@@ -37,9 +37,9 @@ num_train -= num_validation
 train_data, validation_data = random_split(train_dataset, [num_train, num_validation])
 
 # Setup the DataLoader for each split
-train_loader = DataLoader(train_data, batch_size=4, shuffle=True)
-validation_loader = DataLoader(validation_data, batch_size=4, shuffle=False)
-test_loader = DataLoader(test_dataset, batch_size=4, shuffle=False)
+train_loader = DataLoader(train_data, batch_size=32, shuffle=True)
+validation_loader = DataLoader(validation_data, batch_size=32, shuffle=False)
+test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
 print("Data loaders created successfully.")
 
 
