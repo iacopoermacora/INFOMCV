@@ -92,12 +92,12 @@ def train_and_validate(model, model_name, train_loader, validation_loader, optim
     # Compute confusion matrix
     classes = ["clap", "climb", "drink", "jump", "pour", "ride_bike", "ride_horse", 
             "run", "shoot_bow", "smoke", "throw", "wave"]
+    scheduler_type = 'cyclic' if isinstance(scheduler, CyclicLR) else 'dynamic'
     cm = confusion_matrix(all_true, all_preds)
-    plot_confusion_matrix(model_name, cm, classes, title='Confusion Matrix')
+    plot_confusion_matrix(model_name, cm, classes, scheduler_type, title='Confusion Matrix', cmap=plt.cm.Blues)
 
     # Plot the learning rate
-    scheduler_type = 'cyclic' if isinstance(scheduler, CyclicLR) else 'dynamic'
-    plot_learning_rate(learning_rates, scheduler_type)
+    plot_learning_rate(learning_rates, scheduler_type, model_name)
 
 
     # Save the model
@@ -110,9 +110,7 @@ def train_and_validate(model, model_name, train_loader, validation_loader, optim
 
     return train_losses, val_losses, train_accuracies, val_accuracies
 
-def plot_confusion_matrix(model_name, cm, classes,
-                          title='Confusion matrix',
-                          cmap=plt.cm.Blues):
+def plot_confusion_matrix(model_name, cm, classes, scheduler_type, title='Confusion matrix', cmap=plt.cm.Blues):
     """
     This function prints and plots the confusion matrix.
     """
@@ -135,9 +133,9 @@ def plot_confusion_matrix(model_name, cm, classes,
     plt.ylabel('True label')
     plt.xlabel('Predicted label')
     # save confusion matrix plot in the plots folder
-    plt.savefig(f'plots/{model_name}_confusion_matrix.png')
+    plt.savefig(f'plots/{model_name}_{scheduler_type}_confusion_matrix.png')
 
-def plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies, model_name):
+def plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies, model_name, scheduler_type):
     epochs = range(1, len(train_losses) + 1)
     
     plt.figure(figsize=(12, 5))
@@ -158,10 +156,10 @@ def plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies, mod
     plt.legend()
     
     plt.tight_layout()
-    # Save the plot inside the plots folder
-    plt.savefig(f'plots/{model_name}_metrics.png')
+    # Save the plot inside the plots folder 
+    plt.savefig(f'plots/{model_name}_{scheduler_type}_metrics.png')
 
-def plot_learning_rate(learning_rates, scheduler_type):
+def plot_learning_rate(learning_rates, scheduler_type, model_name):
     plt.figure(figsize=(10, 4))
     plt.plot(learning_rates, label='Learning Rate')
     plt.xlabel('Batch' if scheduler_type == 'cyclic' else 'Epoch')
@@ -170,4 +168,5 @@ def plot_learning_rate(learning_rates, scheduler_type):
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig(f'plots/{scheduler_type}_learning_rate.png')
+    # Save the plot inside the plots folder with the name of the model and the scheduler type
+    plt.savefig(f'plots/{model_name}_{scheduler_type}_learning_rate.png')
