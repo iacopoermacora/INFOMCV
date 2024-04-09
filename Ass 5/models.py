@@ -18,9 +18,17 @@ def Stanford40_model(num_classes=12):
 # 2. HMDB51 – Frames (transfer learning): Use your pretrained CNN (same architecture/weights) and fine-tune it on the middle 
 #    frame of videos of the HMDB51 dataset. You can use a different learning rate than for the Stanford 40 network training.
 
-def HMDB51_model():
+def HMDB51_model(num_classes=12):
     # Load the pre-trained stanford40 model from the standford40.pth file
-    model = torch.load('stanford40.pth')
+    model = models.resnet50(pretrained=False)  # Change to the correct model architecture
+
+    # Modify the output layer to have num_classes classes
+    num_ftrs = model.fc.in_features
+    model.fc = nn.Linear(num_ftrs, num_classes)
+
+    # Load the pre-trained Stanford40 model state dictionary
+    state_dict = torch.load('Stanford40_model.pth')
+    model.load_state_dict(state_dict)
 
     freeze = True
     for name, param in model.named_parameters():

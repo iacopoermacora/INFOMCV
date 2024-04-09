@@ -256,6 +256,7 @@ def extract_frames(video_path, output_folder):
             # Save frame to file
             frame_name = os.path.splitext(os.path.basename(video_path))[0]
             output_path = os.path.join(output_folder, f"{frame_name}_{idx * 25}.png")
+            frame = cv2.resize(frame, (224, 224), interpolation=cv2.INTER_AREA)
             cv2.imwrite(output_path, frame)
     
     # Release video capture
@@ -275,10 +276,11 @@ keep_hmdb51 = ["clap", "climb", "drink", "jump", "pour", "ride_bike", "ride_hors
             "run", "shoot_bow", "smoke", "throw", "wave"]
 train_files, train_labels, test_files, test_labels = create_hmdb51_splits(keep_hmdb51)
 
-# Perform data analysis
-plot_distribution(train_labels, test_labels, keep_hmdb51)
-check_video_length(train_files, train_labels, test_files, test_labels, keep_hmdb51)
-check_frame_size(train_files, train_labels, test_files, test_labels, keep_hmdb51)
+if settings.DATA_ANALYSIS:
+    # Perform data analysis
+    plot_distribution(train_labels, test_labels, keep_hmdb51)
+    check_video_length(train_files, train_labels, test_files, test_labels, keep_hmdb51)
+    check_frame_size(train_files, train_labels, test_files, test_labels, keep_hmdb51)
 
 # Extract optical flow images
 if not os.path.exists("video_OF_dataset"):

@@ -64,6 +64,20 @@ class VideoFrameDataset(Dataset):
     def __init__(self, files, labels, root_dir, frame_number, transform=None):
         self.files = files
         self.labels = labels
+        self.label_map = {
+            "clap": 0,
+            "climb": 1,
+            "drink": 2,
+            "jump": 3,
+            "pour": 4,
+            "ride_bike": 5,
+            "ride_horse": 6,
+            "run": 7,
+            "shoot_bow": 8,
+            "smoke": 9,
+            "throw": 10,
+            "wave": 11
+        }
         self.root_dir = root_dir
         self.transform = transform
         self.frame_number = frame_number
@@ -74,6 +88,7 @@ class VideoFrameDataset(Dataset):
     def __getitem__(self, idx):
         video_filename = self.files[idx]
         label = self.labels[idx]
+        label_idx = self.label_map[label]
         
         # Assuming video filename format is "name.avi"
         video_name = os.path.splitext(video_filename)[0]
@@ -85,12 +100,13 @@ class VideoFrameDataset(Dataset):
         image_path = os.path.join(self.root_dir, label, image_filename)
         
         # Loading the image
-        image = read_image(image_path)
+        image = Image.open(image_path).convert('RGB')
         
         if self.transform:
             image = self.transform(image)
+        label_tensor = torch.tensor(label_idx, dtype=torch.long)
         
-        return image, label
+        return image, label_tensor
 
 # Custom dataset class for HMDB51 dataset (optical flow)
 class OpticalFlowDataset(Dataset):
