@@ -2,7 +2,7 @@ from stanford40 import create_stanford40_splits
 from HMDB51 import create_hmdb51_splits
 import torch.nn as nn
 import torch.optim as optim
-from train import initialize_model, train_and_validate, plot_metrics, plot_confusion_matrix
+from train import initialize_model, train_and_validate, plot_metrics, plot_learning_rate
 from torch.optim.lr_scheduler import CyclicLR, StepLR
 import settings
 import matplotlib.pyplot as plt
@@ -69,6 +69,7 @@ for i in range(len(models)):
 
     # Plot the training and validation losses and accuracies
     plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies, model.__class__.__name__)
+
 
 '''# Train and test files for model 2, 3 and 4
 keep_hmdb51 = ["clap", "climb", "drink", "jump", "pour", "ride_bike", "ride_horse", 

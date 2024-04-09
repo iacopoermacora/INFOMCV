@@ -22,7 +22,8 @@ def train_and_validate(model, train_loader, validation_loader, optimizer, schedu
     model.to("cpu")
     
     train_losses, val_losses, train_accuracies, val_accuracies = [], [], [], []
-    
+    learning_rates = []
+
     for epoch in range(num_epochs):
         model.train()
         total_train_loss, total_train_correct, total_train_samples = 0, 0, 0
@@ -42,10 +43,12 @@ def train_and_validate(model, train_loader, validation_loader, optimizer, schedu
 
             # Update learning rate after each batch for CyclicLR
             if isinstance(scheduler, CyclicLR):
+                learning_rates.append(optimizer.param_groups[0]['lr'])
                 scheduler.step()
         
         # Update learning rate after each epoch for other schedulers
         if not isinstance(scheduler, CyclicLR):
+            learning_rates.append(optimizer.param_groups[0]['lr'])
             scheduler.step()
         
         avg_train_loss = total_train_loss / total_train_samples
@@ -88,7 +91,11 @@ def train_and_validate(model, train_loader, validation_loader, optimizer, schedu
             "run", "shoot_bow", "smoke", "throw", "wave"]
     cm = confusion_matrix(all_true, all_preds)
     plot_confusion_matrix(cm, classes, title='Confusion Matrix')
-    plt.show()
+
+    # Plot the learning rate
+    scheduler_type = 'cyclic' if isinstance(scheduler, CyclicLR) else 'dynamic'
+    plot_learning_rate(learning_rates, scheduler_type)
+
 
     # Save the model
     torch.save(model.state_dict(), 'model.pth')
@@ -98,7 +105,7 @@ def train_and_validate(model, train_loader, validation_loader, optimizer, schedu
         for epoch in range(num_epochs):
             f.write(f'Epoch [{epoch+1}/{num_epochs}], Train Loss: {train_losses[epoch]:.4f}, Val Loss: {val_losses[epoch]:.4f}, Train Acc: {train_accuracies[epoch]:.4f}, Val Acc: {val_accuracies[epoch]:.4f}\n')
     
-    # save confusion matrix plot
+    # save confusion matrix plot in the plots folder
     plt.savefig(f'plots/{model.__class__.__name__}_confusion_matrix.png')
 
     return train_losses, val_losses, train_accuracies, val_accuracies
@@ -149,4 +156,16 @@ def plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies, mod
     plt.legend()
     
     plt.tight_layout()
-    plt.savefig(f'metrics_plot_{model_name}.png')
+    # Save the plot inside the plots folder
+    plt.savefig(f'plots/{model_name}_metrics.png')
+
+def plot_learning_rate(learning_rates, scheduler_type):
+    plt.figure(figsize=(10, 4))
+    plt.plot(learning_rates, label='Learning Rate')
+    plt.xlabel('Batch' if scheduler_type == 'cyclic' else 'Epoch')
+    plt.ylabel('Learning Rate')
+    plt.title(f'Learning Rate Evolution ({scheduler_type} scheduler)')
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(f'plots/{scheduler_type}_learning_rate.png')
