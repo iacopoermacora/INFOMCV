@@ -229,8 +229,8 @@ def extract_optical_flow_and_save(video_path, output_folder):
         v_resized = cv2.resize(v_normalized, (112, 112), interpolation=cv2.INTER_AREA)
 
         # Save u and v displacement images
-        cv2.imwrite(os.path.join(output_folder, f"{os.path.splitext(os.path.basename(video_path))[0]}_{idx}_u.png"), u_resized)
-        cv2.imwrite(os.path.join(output_folder, f"{os.path.splitext(os.path.basename(video_path))[0]}_{idx}_v.png"), v_resized)
+        cv2.imwrite(os.path.join(output_folder, f"{os.path.splitext(video_file)[0]}_u_{idx}.png"), u_resized)
+        cv2.imwrite(os.path.join(output_folder, f"{os.path.splitext(video_file)[0]}_v_{idx}.png"), v_resized)
 
     cap.release()
 
