@@ -109,7 +109,7 @@ class OpticalFlowDataset(Dataset):
         return np.stack(flow_stack)
 
 # TODO: Implement the custom dataset class for the two-stream dataset
-
+'''
 # STANFORD40 DATASET
 
 # Create Stanford40 dataset
@@ -143,13 +143,13 @@ print("Data loaders created successfully.")
 # Choose frame number between 0, 25, 50, 75, 100
 frame_number = 50
 train_dataset = VideoFrameDataset(train_files, train_labels, "video_image_dataset", frame_number, transform=ToTensor())
-test_dataset = VideoFrameDataset(test_files, test_labels, "video_image_dataset", frame_number, transform=ToTensor())
+test_dataset = VideoFrameDataset(test_files, test_labels, "video_image_dataset", frame_number, transform=ToTensor())'''
 
 
 
 
 
-# HMDB51 DATASET (OPTICAL FLOW)
+'''# HMDB51 DATASET (OPTICAL FLOW)
 
 # Create custom dataset
 train_dataset = OpticalFlowDataset(train_files, train_labels, root_dir="optical_flow_images")
@@ -158,4 +158,4 @@ print(test_dataset.__getitem__(0))
 # Example usage of DataLoader
 train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
-
+'''

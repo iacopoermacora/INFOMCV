@@ -128,7 +128,7 @@ def plot_confusion_matrix(cm, classes,
     plt.ylabel('True label')
     plt.xlabel('Predicted label')
 
-def plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies):
+def plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies, model_name):
     epochs = range(1, len(train_losses) + 1)
     
     plt.figure(figsize=(12, 5))
@@ -149,4 +149,4 @@ def plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies):
     plt.legend()
     
     plt.tight_layout()
-    plt.show()
+    plt.savefig(f'metrics_plot_{model_name}.png')
