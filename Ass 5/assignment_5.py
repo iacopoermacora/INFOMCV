@@ -48,6 +48,7 @@ print("Data loaders created successfully.")
 
 # Initialize model, loss function, and optimizer
 model = Stanford40_model()
+model_name = "Stanford40_model"
 criteria = nn.CrossEntropyLoss()
 
 # set learning rate scheduler that decreases the learning rate by a factor of 0.5 every 5 epochs or cyclitic learning rate
@@ -63,7 +64,7 @@ else:
     raise ValueError("Invalid learning rate schedule type specified.")
 
 # Train the model
-train_losses, val_losses, train_accuracies, val_accuracies = train_and_validate(model, train_loader, validation_loader, optimizer, scheduler, criteria, num_epochs=5)
+train_losses, val_losses, train_accuracies, val_accuracies = train_and_validate(model, model_name, train_loader, validation_loader, optimizer, scheduler, criteria, num_epochs=5)
 
 # Plot the training and validation losses and accuracies
-plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies, model.__class__.__name__)
+plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies, model_name)

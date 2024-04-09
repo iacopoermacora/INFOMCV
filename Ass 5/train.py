@@ -18,12 +18,11 @@ def initialize_model(model_class):
     model = model_class()
     return model
 
-def train_and_validate(model, train_loader, validation_loader, optimizer, scheduler, criteria, num_epochs):
+def train_and_validate(model, model_name, train_loader, validation_loader, optimizer, scheduler, criteria, num_epochs):
     # device = torch.device("cpu")
     # model.to("cpu")
 
-    print("#"*50)
-    print(f"Training {model.__class__.__name__} model")
+    print(f"Training {model_name} model")
     
     train_losses, val_losses, train_accuracies, val_accuracies = [], [], [], []
     learning_rates = []
@@ -94,7 +93,7 @@ def train_and_validate(model, train_loader, validation_loader, optimizer, schedu
     classes = ["clap", "climb", "drink", "jump", "pour", "ride_bike", "ride_horse", 
             "run", "shoot_bow", "smoke", "throw", "wave"]
     cm = confusion_matrix(all_true, all_preds)
-    plot_confusion_matrix(cm, classes, title='Confusion Matrix')
+    plot_confusion_matrix(model_name, cm, classes, title='Confusion Matrix')
 
     # Plot the learning rate
     scheduler_type = 'cyclic' if isinstance(scheduler, CyclicLR) else 'dynamic'
@@ -102,19 +101,16 @@ def train_and_validate(model, train_loader, validation_loader, optimizer, schedu
 
 
     # Save the model
-    torch.save(model.state_dict(), f'{model.__class__.__name__}.pth')
+    torch.save(model.state_dict(), f'{model_name}.pth')
 
     # save txt file with the model's train and validation losses and accuracies for each epoch
-    with open(f'plots/{model.__class__.__name__}_losses_accuracies.txt', 'a') as f:
+    with open(f'plots/{model_name}_losses_accuracies.txt', 'a') as f:
         for epoch in range(num_epochs):
             f.write(f'Epoch [{epoch+1}/{num_epochs}], Train Loss: {train_losses[epoch]:.4f}, Val Loss: {val_losses[epoch]:.4f}, Train Acc: {train_accuracies[epoch]:.4f}, Val Acc: {val_accuracies[epoch]:.4f}\n')
-    
-    # save confusion matrix plot in the plots folder
-    plt.savefig(f'plots/{model.__class__.__name__}_confusion_matrix.png')
 
     return train_losses, val_losses, train_accuracies, val_accuracies
 
-def plot_confusion_matrix(cm, classes,
+def plot_confusion_matrix(model_name, cm, classes,
                           title='Confusion matrix',
                           cmap=plt.cm.Blues):
     """
@@ -138,6 +134,8 @@ def plot_confusion_matrix(cm, classes,
     plt.tight_layout()
     plt.ylabel('True label')
     plt.xlabel('Predicted label')
+    # save confusion matrix plot in the plots folder
+    plt.savefig(f'plots/{model_name}_confusion_matrix.png')
 
 def plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies, model_name):
     epochs = range(1, len(train_losses) + 1)
