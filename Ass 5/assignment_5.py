@@ -58,12 +58,12 @@ if not os.path.exists('Stanford40_model.pth'):
     elif (settings.LR_SCHEDULER_TYPE) == 'cyclic':
         optimizer = optim.SGD(model.parameters(), lr=0.001)
         # Use CyclicLR for cyclic learning rate adjustments
-        scheduler = CyclicLR(optimizer, base_lr=0.0001, max_lr=0.001, step_size_up=15)
+        scheduler = CyclicLR(optimizer, base_lr=0.0001, max_lr=0.001, step_size_up=15, mode='triangular2')
     else:
         raise ValueError("Invalid learning rate schedule type specified.")
 
     # Train the model
-    train_losses, val_losses, train_accuracies, val_accuracies = train_and_validate(model, model_name, train_loader, validation_loader, optimizer, scheduler, criteria, num_epochs=32)
+    train_losses, val_losses, train_accuracies, val_accuracies = train_and_validate(model, model_name, train_loader, validation_loader, optimizer, scheduler, criteria, num_epochs=15)
 
     # Plot the training and validation losses and accuracies
     plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies, model_name, settings.LR_SCHEDULER_TYPE)
@@ -105,7 +105,7 @@ if not os.path.exists('HMDB51_model.pth'):
     elif (settings.LR_SCHEDULER_TYPE) == 'cyclic':
         optimizer = optim.SGD(model.parameters(), lr=0.001)
         # Use CyclicLR for cyclic learning rate adjustments
-        scheduler = CyclicLR(optimizer, base_lr=0.0001, max_lr=0.001, step_size_up=15)
+        scheduler = CyclicLR(optimizer, base_lr=0.0001, max_lr=0.001, step_size_up=15, mode='triangular2')
     else:
         raise ValueError("Invalid learning rate schedule type specified.")
 
@@ -134,9 +134,9 @@ if not os.path.exists('HMDB51_OF_model.pth'):
     train_data, validation_data = random_split(train_dataset, [num_train, num_validation])
 
     # Setup the DataLoader for each split
-    train_loader = DataLoader(train_data, batch_size=8, shuffle=True)
-    validation_loader = DataLoader(validation_data, batch_size=8, shuffle=False)
-    test_loader = DataLoader(test_dataset, batch_size=8, shuffle=False)
+    train_loader = DataLoader(train_data, batch_size=32, shuffle=True)
+    validation_loader = DataLoader(validation_data, batch_size=32, shuffle=False)
+    test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
     print("Data loaders created successfully.")
 
     # SECOND MODEL
