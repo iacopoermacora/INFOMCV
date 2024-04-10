@@ -5,13 +5,18 @@ import torchvision.models as models
 
 # 1. Stanford 40 – Frames: Create a CNN and train it on the images in Stanford 40. Naturally, you will have 12 output classes.
 
-def Stanford40_model(num_classes=12):
+def Stanford40_model(num_classes=12, dropout_prob=0.5):
     # Load the pre-trained ResNet-50 model
     model = models.resnet50(weights='ResNet50_Weights.DEFAULT')
     
     # Modify the output layer to have num_classes classes
     num_ftrs = model.fc.in_features
-    model.fc = nn.Linear(num_ftrs, num_classes)
+    # Create a new Sequential model for the classifier
+    # It includes a Dropout layer followed by the final Linear layer
+    model.fc = nn.Sequential(
+        nn.Dropout(dropout_prob),  # Add dropout with a probability of dropout_prob
+        nn.Linear(num_ftrs, num_classes)
+    )
     
     return model
 

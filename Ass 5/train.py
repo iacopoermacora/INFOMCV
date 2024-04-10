@@ -88,6 +88,9 @@ def train_and_validate(model, model_name, train_loader, validation_loader, optim
                 f'Val Loss: {avg_val_loss:.4f}, '
                 f'Train Acc: {train_accuracy:.4f}, '
                 f'Val Acc: {val_accuracy:.4f}')
+        
+        # Save the model
+        torch.save(model.state_dict(), f'{model_name}_epoch_{epoch}.pth')
     
     # Compute confusion matrix
     classes = ["clap", "climb", "drink", "jump", "pour", "ride_bike", "ride_horse", 

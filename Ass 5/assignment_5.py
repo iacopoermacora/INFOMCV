@@ -54,7 +54,7 @@ if not os.path.exists('Stanford40_model.pth'):
     if (settings.LR_SCHEDULER_TYPE) == 'dynamic':
         optimizer = optim.Adam(model.parameters(), lr=0.001)
         # Use StepLR for dynamic learning rate adjustments
-        scheduler = StepLR(optimizer, step_size=5, gamma=0.5)
+        scheduler = StepLR(optimizer, step_size=1, gamma=0.5)
     elif (settings.LR_SCHEDULER_TYPE) == 'cyclic':
         optimizer = optim.SGD(model.parameters(), lr=0.001)
         # Use CyclicLR for cyclic learning rate adjustments
@@ -63,7 +63,7 @@ if not os.path.exists('Stanford40_model.pth'):
         raise ValueError("Invalid learning rate schedule type specified.")
 
     # Train the model
-    train_losses, val_losses, train_accuracies, val_accuracies = train_and_validate(model, model_name, train_loader, validation_loader, optimizer, scheduler, criteria, num_epochs=5)
+    train_losses, val_losses, train_accuracies, val_accuracies = train_and_validate(model, model_name, train_loader, validation_loader, optimizer, scheduler, criteria, num_epochs=15)
 
     # Plot the training and validation losses and accuracies
     plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies, model_name, settings.LR_SCHEDULER_TYPE)
