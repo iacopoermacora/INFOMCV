@@ -6,8 +6,8 @@ from train import initialize_model, train_and_validate, plot_metrics, plot_learn
 from torch.optim.lr_scheduler import CyclicLR, StepLR
 import settings
 import matplotlib.pyplot as plt
-from models import Stanford40_model, HMDB51_model
-from datasets import CustomStandford40Dataset, VideoFrameDataset
+from models import Stanford40_model, HMDB51_model, HMDB51_OF_model
+from datasets import CustomStandford40Dataset, VideoFrameDataset, OpticalFlowDataset
 from torch.utils.data import Dataset, DataLoader, random_split
 from torchvision.transforms import ToTensor
 import os
@@ -63,55 +63,102 @@ if not os.path.exists('Stanford40_model.pth'):
         raise ValueError("Invalid learning rate schedule type specified.")
 
     # Train the model
+    train_losses, val_losses, train_accuracies, val_accuracies = train_and_validate(model, model_name, train_loader, validation_loader, optimizer, scheduler, criteria, num_epochs=5)
+
+    # Plot the training and validation losses and accuracies
+    plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies, model_name, settings.LR_SCHEDULER_TYPE)
+
+if not os.path.exists('HMDB51_model.pth'):
+    keep_hmdb51 = ["clap", "climb", "drink", "jump", "pour", "ride_bike", "ride_horse", 
+                "run", "shoot_bow", "smoke", "throw", "wave"]
+    train_files, train_labels, test_files, test_labels = create_hmdb51_splits(keep_hmdb51)
+
+    # Choose frame number between 0, 25, 50, 75, 100
+    frame_number = 50
+    train_dataset = VideoFrameDataset(train_files, train_labels, "video_image_dataset", frame_number, transform=ToTensor())
+    test_dataset = VideoFrameDataset(test_files, test_labels, "video_image_dataset", frame_number, transform=ToTensor())
+
+    # Split the training dataset into training and validation
+    validation_split = 0.15
+    num_train = len(train_dataset)
+    num_validation = int(num_train * validation_split)
+    num_train -= num_validation
+    train_data, validation_data = random_split(train_dataset, [num_train, num_validation])
+
+    # Setup the DataLoader for each split
+    train_loader = DataLoader(train_data, batch_size=32, shuffle=True)
+    validation_loader = DataLoader(validation_data, batch_size=32, shuffle=False)
+    test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
+    print("Data loaders created successfully.")
+
+    # SECOND MODEL
+    # Initialize model, loss function, and optimizer
+    model = HMDB51_model()
+    model_name = "HMDB51_model"
+    criteria = nn.CrossEntropyLoss()
+
+    # set learning rate scheduler that decreases the learning rate by a factor of 0.5 every 5 epochs or cyclitic learning rate
+    if (settings.LR_SCHEDULER_TYPE) == 'dynamic':
+        optimizer = optim.Adam(model.parameters(), lr=0.001)
+        # Use StepLR for dynamic learning rate adjustments
+        scheduler = StepLR(optimizer, step_size=1, gamma=0.5)
+    elif (settings.LR_SCHEDULER_TYPE) == 'cyclic':
+        optimizer = optim.SGD(model.parameters(), lr=0.001)
+        # Use CyclicLR for cyclic learning rate adjustments
+        scheduler = CyclicLR(optimizer, base_lr=0.001, max_lr=0.1, step_size_up=25)
+    else:
+        raise ValueError("Invalid learning rate schedule type specified.")
+
+    # Train the model
     train_losses, val_losses, train_accuracies, val_accuracies = train_and_validate(model, model_name, train_loader, validation_loader, optimizer, scheduler, criteria, num_epochs=15)
 
     # Plot the training and validation losses and accuracies
     plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies, model_name, settings.LR_SCHEDULER_TYPE)
 
 
-keep_hmdb51 = ["clap", "climb", "drink", "jump", "pour", "ride_bike", "ride_horse", 
-            "run", "shoot_bow", "smoke", "throw", "wave"]
-train_files, train_labels, test_files, test_labels = create_hmdb51_splits(keep_hmdb51)
+if not os.path.exists('HMDB51_OF_model.pth'):
+    # HMDB51 - Optical Flow
+    keep_hmdb51 = ["clap", "climb", "drink", "jump", "pour", "ride_bike", "ride_horse", 
+                "run", "shoot_bow", "smoke", "throw", "wave"]
+    train_files, train_labels, test_files, test_labels = create_hmdb51_splits(keep_hmdb51)
 
-# Choose frame number between 0, 25, 50, 75, 100
-frame_number = 50
-train_dataset = VideoFrameDataset(train_files, train_labels, "video_image_dataset", frame_number, transform=ToTensor())
-test_dataset = VideoFrameDataset(test_files, test_labels, "video_image_dataset", frame_number, transform=ToTensor())
+    # Create custom dataset
+    train_dataset = OpticalFlowDataset(train_files, train_labels, root_dir="video_OF_dataset", transform=ToTensor())
+    test_dataset = OpticalFlowDataset(test_files, test_labels, root_dir="video_OF_dataset", transform=ToTensor())
 
-# Split the training dataset into training and validation
-validation_split = 0.15
-num_train = len(train_dataset)
-num_validation = int(num_train * validation_split)
-num_train -= num_validation
-train_data, validation_data = random_split(train_dataset, [num_train, num_validation])
+    # Split the training dataset into training and validation
+    validation_split = 0.15
+    num_train = len(train_dataset)
+    num_validation = int(num_train * validation_split)
+    num_train -= num_validation
+    train_data, validation_data = random_split(train_dataset, [num_train, num_validation])
 
-# Setup the DataLoader for each split
-train_loader = DataLoader(train_data, batch_size=32, shuffle=True)
-validation_loader = DataLoader(validation_data, batch_size=32, shuffle=False)
-test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
-print("Data loaders created successfully.")
+    # Setup the DataLoader for each split
+    train_loader = DataLoader(train_data, batch_size=8, shuffle=True)
+    validation_loader = DataLoader(validation_data, batch_size=8, shuffle=False)
+    test_loader = DataLoader(test_dataset, batch_size=8, shuffle=False)
+    print("Data loaders created successfully.")
 
-# SECOND MODEL
+    # SECOND MODEL
+    # Initialize model, loss function, and optimizer
+    model = HMDB51_OF_model()
+    model_name = "HMDB51_OF_model"
+    criteria = nn.CrossEntropyLoss()
 
-# Initialize model, loss function, and optimizer
-model = HMDB51_model()
-model_name = "HMDB51_model"
-criteria = nn.CrossEntropyLoss()
+    # set learning rate scheduler that decreases the learning rate by a factor of 0.5 every 5 epochs or cyclitic learning rate
+    if (settings.LR_SCHEDULER_TYPE) == 'dynamic':
+        optimizer = optim.Adam(model.parameters(), lr=0.001)
+        # Use StepLR for dynamic learning rate adjustments
+        scheduler = StepLR(optimizer, step_size=1, gamma=0.5)
+    elif (settings.LR_SCHEDULER_TYPE) == 'cyclic':
+        optimizer = optim.SGD(model.parameters(), lr=0.001)
+        # Use CyclicLR for cyclic learning rate adjustments
+        scheduler = CyclicLR(optimizer, base_lr=0.001, max_lr=0.1, step_size_up=25)
+    else:
+        raise ValueError("Invalid learning rate schedule type specified.")
 
-# set learning rate scheduler that decreases the learning rate by a factor of 0.5 every 5 epochs or cyclitic learning rate
-if (settings.LR_SCHEDULER_TYPE) == 'dynamic':
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
-    # Use StepLR for dynamic learning rate adjustments
-    scheduler = StepLR(optimizer, step_size=5, gamma=0.5)
-elif (settings.LR_SCHEDULER_TYPE) == 'cyclic':
-    optimizer = optim.SGD(model.parameters(), lr=0.001)
-    # Use CyclicLR for cyclic learning rate adjustments
-    scheduler = CyclicLR(optimizer, base_lr=0.001, max_lr=0.1, step_size_up=25)
-else:
-    raise ValueError("Invalid learning rate schedule type specified.")
+    # Train the model
+    train_losses, val_losses, train_accuracies, val_accuracies = train_and_validate(model, model_name, train_loader, validation_loader, optimizer, scheduler, criteria, num_epochs=20)
 
-# Train the model
-train_losses, val_losses, train_accuracies, val_accuracies = train_and_validate(model, model_name, train_loader, validation_loader, optimizer, scheduler, criteria, num_epochs=5)
-
-# Plot the training and validation losses and accuracies
-plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies, model_name, settings.LR_SCHEDULER_TYPE)
+    # Plot the training and validation losses and accuracies
+    plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies, model_name, settings.LR_SCHEDULER_TYPE)

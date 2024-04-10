@@ -10,3 +10,4 @@ video_image_dataset/
 video_OF_dataset/
 __pycache__/
 settings.py
+*.pth

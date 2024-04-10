@@ -94,18 +94,25 @@ def check_video_length(train_files, train_labels, test_files, test_labels, keep_
         return
     train_video_lengths = {class_name: [] for class_name in keep_hmdb51}
     test_video_lengths = {class_name: [] for class_name in keep_hmdb51}
-
+    shortest_video = float('inf')
+    shortest_video_path = None
     for video_file, label in zip(train_files, train_labels):
         video_path = os.path.join('video_data', label, video_file)
         cap = cv2.VideoCapture(video_path)
         length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         train_video_lengths[label].append(length)
+        if length < shortest_video:
+            shortest_video = length
+            shortest_video_path = video_path
 
     for video_file, label in zip(test_files, test_labels):
         video_path = os.path.join('video_data', label, video_file)
         cap = cv2.VideoCapture(video_path)
         length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         test_video_lengths[label].append(length)
+        if length < shortest_video:
+            shortest_video = length
+            shortest_video_path = video_path
 
     # Plotting video length distributions
     plt.figure(figsize=(12, 6))
@@ -127,6 +134,12 @@ def check_video_length(train_files, train_labels, test_files, test_labels, keep_
 
     plt.tight_layout()
     plt.savefig("plots/dataset_distributions/hmdb51_video_length_distribution.png")
+
+    # Save the shortest video length in a txt file
+    with open("plots/dataset_distributions/shortest_video_length.txt", "w") as f:
+        f.write(f"Shortest video length: {shortest_video}")
+        f.write(f"\nShortest video path: {shortest_video_path}")
+        
 
 def check_frame_size(train_files, train_labels, test_files, test_labels, keep_hmdb51):
     # Check if the frame size file already exists
@@ -191,13 +204,18 @@ def extract_optical_flow_and_save(video_path, output_folder):
     if frame_count < 16:
         print("#" * 200)
         print(f"Video {video_path} has less than 16 frames.")
-    step_size = frame_count // 16
-    for i, idx in enumerate(range(1, frame_count, step_size)):  # Extract 16 evenly spaced frames
+    step_size = frame_count // 17
+    count = 0
+    for i, idx in enumerate(range(0, frame_count, step_size)):  # Extract 16 evenly spaced frames
         if i > 15:
             break
-
+        
+        # Set the frame position to the desired frame number
+        cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
         ret, frame1 = cap.read()
+        cap.set(cv2.CAP_PROP_POS_FRAMES, idx + step_size)
         ret, frame2 = cap.read()
+        
         if not ret:
             break
 
@@ -229,8 +247,10 @@ def extract_optical_flow_and_save(video_path, output_folder):
         v_resized = cv2.resize(v_normalized, (224, 224), interpolation=cv2.INTER_AREA)
 
         # Save u and v displacement images
-        cv2.imwrite(os.path.join(output_folder, f"{os.path.splitext(video_file)[0]}_u_{idx}.png"), u_resized)
-        cv2.imwrite(os.path.join(output_folder, f"{os.path.splitext(video_file)[0]}_v_{idx}.png"), v_resized)
+        cv2.imwrite(os.path.join(output_folder, f"{os.path.splitext(video_file)[0]}_{idx}_u.png"), u_resized)
+        cv2.imwrite(os.path.join(output_folder, f"{os.path.splitext(video_file)[0]}_{idx}_v.png"), v_resized)
+
+        count += 2
 
     cap.release()
 

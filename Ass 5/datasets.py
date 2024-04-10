@@ -8,6 +8,7 @@ from torchvision.transforms import ToTensor
 from stanford40 import create_stanford40_splits
 from PIL import Image
 import torch
+import re
 
 # TODO: We need to import the correct labels, even better if we do it in the other general file
 
@@ -113,6 +114,20 @@ class OpticalFlowDataset(Dataset):
     def __init__(self, file_paths, labels, root_dir, transform=None):
         self.file_paths = file_paths
         self.labels = labels
+        self.label_map = {
+            "clap": 0,
+            "climb": 1,
+            "drink": 2,
+            "jump": 3,
+            "pour": 4,
+            "ride_bike": 5,
+            "ride_horse": 6,
+            "run": 7,
+            "shoot_bow": 8,
+            "smoke": 9,
+            "throw": 10,
+            "wave": 11
+        }
         self.root_dir = root_dir
         self.transform = transform
 
@@ -120,21 +135,27 @@ class OpticalFlowDataset(Dataset):
         return len(self.file_paths)
 
     def __getitem__(self, idx):
-        flow_stack = self.load_optical_flow_stack(idx)
         label = self.labels[idx]
+        label_idx = self.label_map[label]
+        label_tensor = torch.tensor(label_idx, dtype=torch.long)
 
-        if self.transform:
-            flow_stack = self.transform(flow_stack)
+        flow_stack = self.load_optical_flow_stack(idx)
+        flow_stack = torch.tensor(flow_stack).float()
 
-        return flow_stack, label
+        return flow_stack, label_tensor
 
     def load_optical_flow_stack(self, idx):
+
+        def sort_by_number(filename):
+            return [int(x) if x.isdigit() else x for x in re.findall(r'\d+|\D+', filename)]
+    
         flow_stack = []
 
         flow_folder_path = os.path.join(self.root_dir, self.labels[idx])
-        print(self.file_paths[idx])
-        image_files = [file for file in os.listdir(flow_folder_path) if file.startswith(os.path.splitext(self.file_paths[idx])[0])]
-                       
+        image_files = [file for file in os.listdir(flow_folder_path) if file.startswith(os.path.splitext(self.file_paths[idx])[0]+"_")]
+        
+        image_files = sorted(image_files, key=sort_by_number)
+
         for image in image_files:
             flow_img_path = os.path.join(flow_folder_path, image)
             flow_img = cv2.imread(flow_img_path, cv2.IMREAD_GRAYSCALE)
@@ -143,6 +164,8 @@ class OpticalFlowDataset(Dataset):
         return np.stack(flow_stack)
 
 # TODO: Implement the custom dataset class for the two-stream dataset
+
+
 '''
 # STANFORD40 DATASET
 
