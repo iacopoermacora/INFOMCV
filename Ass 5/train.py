@@ -26,6 +26,7 @@ def train_and_validate(model, model_name, train_loader, validation_loader, optim
     
     train_losses, val_losses, train_accuracies, val_accuracies = [], [], [], []
     learning_rates = []
+    l1_lambda = 10e-6
 
     for epoch in tqdm(range(num_epochs)):
         model.train()
@@ -36,10 +37,16 @@ def train_and_validate(model, model_name, train_loader, validation_loader, optim
             optimizer.zero_grad()
             outputs = model(inputs)
             loss = criteria(outputs, labels)
-            loss.backward()
+
+            # Calculate L1 regularization (sum of absolute values of all trainable parameters)
+            l1_reg = sum(p.abs().sum() for p in model.parameters())
+
+            # Add L1 regularization to the original loss
+            total_loss = loss + l1_lambda * l1_reg            
+            total_loss.backward()
             optimizer.step()
 
-            total_train_loss += loss.item() * inputs.size(0)
+            total_train_loss += total_loss.item() * inputs.size(0)
             _, predicted = torch.max(outputs, 1)
             total_train_correct += (predicted == labels).sum().item()
             total_train_samples += labels.size(0)

@@ -110,7 +110,7 @@ if not os.path.exists('HMDB51_model.pth'):
         raise ValueError("Invalid learning rate schedule type specified.")
 
     # Train the model
-    train_losses, val_losses, train_accuracies, val_accuracies = train_and_validate(model, model_name, train_loader, validation_loader, optimizer, scheduler, criteria, num_epochs=15)
+    train_losses, val_losses, train_accuracies, val_accuracies = train_and_validate(model, model_name, train_loader, validation_loader, optimizer, scheduler, criteria, num_epochs=5)
 
     # Plot the training and validation losses and accuracies
     plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies, model_name, settings.LR_SCHEDULER_TYPE)
@@ -139,7 +139,7 @@ if not os.path.exists('HMDB51_OF_model.pth'):
     test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
     print("Data loaders created successfully.")
 
-    # SECOND MODEL
+    # THIRD MODEL
     # Initialize model, loss function, and optimizer
     model = HMDB51_OF_model()
     model_name = "HMDB51_OF_model"
@@ -158,7 +158,7 @@ if not os.path.exists('HMDB51_OF_model.pth'):
         raise ValueError("Invalid learning rate schedule type specified.")
 
     # Train the model
-    train_losses, val_losses, train_accuracies, val_accuracies = train_and_validate(model, model_name, train_loader, validation_loader, optimizer, scheduler, criteria, num_epochs=2)
+    train_losses, val_losses, train_accuracies, val_accuracies = train_and_validate(model, model_name, train_loader, validation_loader, optimizer, scheduler, criteria, num_epochs=15)
 
     # Plot the training and validation losses and accuracies
     plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies, model_name, settings.LR_SCHEDULER_TYPE)
