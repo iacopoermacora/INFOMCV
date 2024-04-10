@@ -56,7 +56,7 @@ def HMDB51_model(num_classes=12, dropout_prob=0.5):
 # 3. HMDB51 – Optical flow: Create a new CNN and train it on the optical flow of videos in HMBD51. You can use the middle frame
 #    (max 5 points) or stack a fixed number (e.g., 16) of optical flow frames together (max 10 points).
 
-class HMDB51_OF_model_OLD(nn.Module):
+class HMDB51_OF_model_old(nn.Module):
     def __init__(self):
         super(HMDB51_OF_model, self).__init__()
         self.conv1 = nn.Sequential(
@@ -88,7 +88,7 @@ class HMDB51_OF_model_OLD(nn.Module):
             nn.Dropout(p=0.5)
         )
         self.linear = nn.Linear(2048, 12)
-        self.softmax = nn.Softmax(dim=1)
+        # self.softmax = nn.Softmax(dim=1)
         
     def forward(self, x):
         x = self.conv1(x)
@@ -100,7 +100,7 @@ class HMDB51_OF_model_OLD(nn.Module):
         x = self.full6(x)
         x = self.full7(x)
         x = self.linear(x)
-        x = self.softmax(x)
+        # x = self.softmax(x)
         return x
 
 def HMDB51_OF_model(num_classes=12, dropout_prob=0.5):

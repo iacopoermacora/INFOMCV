@@ -26,7 +26,7 @@ def train_and_validate(model, model_name, train_loader, validation_loader, optim
     
     train_losses, val_losses, train_accuracies, val_accuracies = [], [], [], []
     learning_rates = []
-    l1_lambda = 10e-6
+    #l1_lambda = 10e-8
 
     for epoch in tqdm(range(num_epochs)):
         model.train()
@@ -42,16 +42,17 @@ def train_and_validate(model, model_name, train_loader, validation_loader, optim
             outputs = model(inputs)
             loss = criteria(outputs, labels)
 
-            # Calculate L1 regularization (sum of absolute values of all trainable parameters)
+            '''            # Calculate L1 regularization (sum of absolute values of all trainable parameters)
             l1_reg = sum(p.abs().sum() for p in model.parameters())
 
             # Add L1 regularization to the original loss
-            total_loss = loss + l1_lambda * l1_reg            
-            total_loss.backward()
+            total_loss = loss + l1_lambda * l1_reg '''           
+            loss.backward()
             optimizer.step()
 
-            total_train_loss += total_loss.item() * inputs.size(0)
+            total_train_loss += loss.item() * inputs.size(0)
             _, predicted = torch.max(outputs, 1)
+            predicted 
             total_train_correct += (predicted == labels).sum().item()
             total_train_samples += labels.size(0)
 
@@ -107,21 +108,21 @@ def train_and_validate(model, model_name, train_loader, validation_loader, optim
                 f'Val Acc: {val_accuracy:.4f}')
         
         # Save the model
-        torch.save(model.state_dict(), f'{model_name}_epoch_{epoch}.pth')
+        torch.save(model.state_dict(), f'{model_name}_epoch_{epoch}_{scheduler_type}.pth')
     
-    # Compute confusion matrix
-    classes = ["clap", "climb", "drink", "jump", "pour", "ride_bike", "ride_horse", 
-            "run", "shoot_bow", "smoke", "throw", "wave"]
-    scheduler_type = 'cyclic' if isinstance(scheduler, CyclicLR) else 'dynamic'
-    cm = confusion_matrix(all_true, all_preds)
-    plot_confusion_matrix(model_name, cm, classes, scheduler_type, title='Confusion Matrix', cmap=plt.cm.Blues)
+        # Compute confusion matrix
+        classes = ["clap", "climb", "drink", "jump", "pour", "ride_bike", "ride_horse", 
+                "run", "shoot_bow", "smoke", "throw", "wave"]
+        scheduler_type = 'cyclic' if isinstance(scheduler, CyclicLR) else 'dynamic'
+        cm = confusion_matrix(all_true, all_preds)
+        plot_confusion_matrix(model_name, cm, classes, scheduler_type, title=f'Confusion Matrix {epoch}', cmap=plt.cm.Blues)
 
     # Plot the learning rate
     plot_learning_rate(learning_rates, scheduler_type, model_name)
 
 
     # Save the model
-    torch.save(model.state_dict(), f'{model_name}.pth')
+    torch.save(model.state_dict(), f'{model_name}_{scheduler_type}.pth')
 
     # save txt file with the model's train and validation losses and accuracies for each epoch
     with open(f'plots/{model_name}_losses_accuracies.txt', 'a') as f:
@@ -134,7 +135,7 @@ def plot_confusion_matrix(model_name, cm, classes, scheduler_type, title='Confus
     """
     This function prints and plots the confusion matrix.
     """
-
+    plt.figure(figsize=(10, 10))
     plt.imshow(cm, interpolation='nearest', cmap=cmap)
     plt.title(title)
     plt.colorbar()
@@ -153,7 +154,7 @@ def plot_confusion_matrix(model_name, cm, classes, scheduler_type, title='Confus
     plt.ylabel('True label')
     plt.xlabel('Predicted label')
     # save confusion matrix plot in the plots folder
-    plt.savefig(f'plots/{model_name}_{scheduler_type}_confusion_matrix.png')
+    plt.savefig(f'plots/{model_name}_{scheduler_type}_{title}.png')
 
 def plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies, model_name, scheduler_type):
     epochs = range(1, len(train_losses) + 1)

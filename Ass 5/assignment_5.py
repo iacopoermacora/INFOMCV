@@ -12,153 +12,156 @@ from torch.utils.data import Dataset, DataLoader, random_split
 from torchvision.transforms import ToTensor
 import os
 
-if not os.path.exists('Stanford40_model.pth'):
-    # Create Stanford40 dataset
-    train_files, train_labels, test_files, test_labels = create_stanford40_splits()
+scheduler_loop = ['dynamic', 'cyclic']
+for scheduler_i in scheduler_loop:
+    # STANFORD40 CYCLIC
+    if not os.path.exists(f'Stanford40_model_{scheduler_i}.pth'):
+        # Create Stanford40 dataset
+        train_files, train_labels, test_files, test_labels = create_stanford40_splits()
 
-    # Read the files from the augmented_files.txt file
-    with open('augmented_files.txt', 'r') as f:
-        augmented_files = [line.strip() for line in f]
-    train_files = train_files + augmented_files
+        # Read the files from the augmented_files.txt file
+        with open('augmented_files.txt', 'r') as f:
+            augmented_files = [line.strip() for line in f]
+        train_files = train_files + augmented_files
 
-    # Read the labels from the augmented_labels.txt file
-    with open('augmented_labels.txt', 'r') as f:
-        augmented_labels = [line.strip() for line in f]
-    train_labels = train_labels + augmented_labels
+        # Read the labels from the augmented_labels.txt file
+        with open('augmented_labels.txt', 'r') as f:
+            augmented_labels = [line.strip() for line in f]
+        train_labels = train_labels + augmented_labels
 
-    # Create custom dataset
-    # Initialize the datasets
-    train_dataset = CustomStandford40Dataset(img_dir='photo_dataset/train', file_paths=train_files, labels=train_labels, transform=ToTensor())
-    test_dataset = CustomStandford40Dataset(img_dir='photo_dataset/test', file_paths=test_files, labels=test_labels, transform=ToTensor())
+        # Create custom dataset
+        # Initialize the datasets
+        train_dataset = CustomStandford40Dataset(img_dir='photo_dataset/train', file_paths=train_files, labels=train_labels, transform=ToTensor())
+        test_dataset = CustomStandford40Dataset(img_dir='photo_dataset/test', file_paths=test_files, labels=test_labels, transform=ToTensor())
 
-    # Split the training dataset into training and validation
-    validation_split = 0.15
-    num_train = len(train_dataset)
-    num_validation = int(num_train * validation_split)
-    num_train -= num_validation
-    train_data, validation_data = random_split(train_dataset, [num_train, num_validation])
+        # Split the training dataset into training and validation
+        validation_split = 0.15
+        num_train = len(train_dataset)
+        num_validation = int(num_train * validation_split)
+        num_train -= num_validation
+        train_data, validation_data = random_split(train_dataset, [num_train, num_validation])
 
-    # Setup the DataLoader for each split
-    train_loader = DataLoader(train_data, batch_size=32, shuffle=True)
-    validation_loader = DataLoader(validation_data, batch_size=32, shuffle=False)
-    test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
-    print("Data loaders created successfully.")
+        # Setup the DataLoader for each split
+        train_loader = DataLoader(train_data, batch_size=32, shuffle=True)
+        validation_loader = DataLoader(validation_data, batch_size=32, shuffle=False)
+        test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
+        print("Data loaders created successfully.")
 
-    # FIRST MODEL
-    # Initialize model, loss function, and optimizer
-    model = Stanford40_model()
-    model_name = "Stanford40_model"
-    criteria = nn.CrossEntropyLoss()
+        # FIRST MODEL
+        # Initialize model, loss function, and optimizer
+        model = Stanford40_model()
+        model_name = "Stanford40_model"
+        criteria = nn.CrossEntropyLoss()
 
-    # set learning rate scheduler that decreases the learning rate by a factor of 0.5 every 5 epochs or cyclitic learning rate
-    if (settings.LR_SCHEDULER_TYPE) == 'dynamic':
-        optimizer = optim.Adam(model.parameters(), lr=0.001)
-        # Use StepLR for dynamic learning rate adjustments
-        scheduler = StepLR(optimizer, step_size=1, gamma=0.5)
-    elif (settings.LR_SCHEDULER_TYPE) == 'cyclic':
-        optimizer = optim.SGD(model.parameters(), lr=0.001)
-        # Use CyclicLR for cyclic learning rate adjustments
-        scheduler = CyclicLR(optimizer, base_lr=0.0001, max_lr=0.001, step_size_up=15, mode='triangular2')
-    else:
-        raise ValueError("Invalid learning rate schedule type specified.")
+        # set learning rate scheduler that decreases the learning rate by a factor of 0.5 every 5 epochs or cyclitic learning rate
+        if (scheduler_i) == 'dynamic':
+            optimizer = optim.Adam(model.parameters(), lr=0.001)
+            # Use StepLR for dynamic learning rate adjustments
+            scheduler = StepLR(optimizer, step_size=1, gamma=0.5)
+        elif (scheduler_i) == 'cyclic':
+            optimizer = optim.SGD(model.parameters(), lr=0.001)
+            # Use CyclicLR for cyclic learning rate adjustments
+            scheduler = CyclicLR(optimizer, base_lr=0.0001, max_lr=0.001, step_size_up=15, mode='triangular2')
+        else:
+            raise ValueError("Invalid learning rate schedule type specified.")
 
-    # Train the model
-    train_losses, val_losses, train_accuracies, val_accuracies = train_and_validate(model, model_name, train_loader, validation_loader, optimizer, scheduler, criteria, num_epochs=15)
+        # Train the model
+        train_losses, val_losses, train_accuracies, val_accuracies = train_and_validate(model, model_name, train_loader, validation_loader, optimizer, scheduler, criteria, num_epochs=20)
 
-    # Plot the training and validation losses and accuracies
-    plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies, model_name, settings.LR_SCHEDULER_TYPE)
+        # Plot the training and validation losses and accuracies
+        plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies, model_name, scheduler_i)
 
-if not os.path.exists('HMDB51_model.pth'):
-    keep_hmdb51 = ["clap", "climb", "drink", "jump", "pour", "ride_bike", "ride_horse", 
-                "run", "shoot_bow", "smoke", "throw", "wave"]
-    train_files, train_labels, test_files, test_labels = create_hmdb51_splits(keep_hmdb51)
+    if not os.path.exists(f'HMDB51_model_{scheduler_i}.pth'):
+        keep_hmdb51 = ["clap", "climb", "drink", "jump", "pour", "ride_bike", "ride_horse", 
+                    "run", "shoot_bow", "smoke", "throw", "wave"]
+        train_files, train_labels, test_files, test_labels = create_hmdb51_splits(keep_hmdb51)
 
-    # Choose frame number between 0, 25, 50, 75, 100
-    frame_number = 50
-    train_dataset = VideoFrameDataset(train_files, train_labels, "video_image_dataset", frame_number, transform=ToTensor())
-    test_dataset = VideoFrameDataset(test_files, test_labels, "video_image_dataset", frame_number, transform=ToTensor())
+        # Choose frame number between 0, 25, 50, 75, 100
+        frame_number = 50
+        train_dataset = VideoFrameDataset(train_files, train_labels, "video_image_dataset", frame_number, transform=ToTensor())
+        test_dataset = VideoFrameDataset(test_files, test_labels, "video_image_dataset", frame_number, transform=ToTensor())
 
-    # Split the training dataset into training and validation
-    validation_split = 0.15
-    num_train = len(train_dataset)
-    num_validation = int(num_train * validation_split)
-    num_train -= num_validation
-    train_data, validation_data = random_split(train_dataset, [num_train, num_validation])
+        # Split the training dataset into training and validation
+        validation_split = 0.15
+        num_train = len(train_dataset)
+        num_validation = int(num_train * validation_split)
+        num_train -= num_validation
+        train_data, validation_data = random_split(train_dataset, [num_train, num_validation])
 
-    # Setup the DataLoader for each split
-    train_loader = DataLoader(train_data, batch_size=32, shuffle=True)
-    validation_loader = DataLoader(validation_data, batch_size=32, shuffle=False)
-    test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
-    print("Data loaders created successfully.")
+        # Setup the DataLoader for each split
+        train_loader = DataLoader(train_data, batch_size=32, shuffle=True)
+        validation_loader = DataLoader(validation_data, batch_size=32, shuffle=False)
+        test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
+        print("Data loaders created successfully.")
 
-    # SECOND MODEL
-    # Initialize model, loss function, and optimizer
-    model = HMDB51_model()
-    model_name = "HMDB51_model"
-    criteria = nn.CrossEntropyLoss()
+        # SECOND MODEL
+        # Initialize model, loss function, and optimizer
+        model = HMDB51_model()
+        model_name = "HMDB51_model"
+        criteria = nn.CrossEntropyLoss()
 
-    # set learning rate scheduler that decreases the learning rate by a factor of 0.5 every 5 epochs or cyclitic learning rate
-    if (settings.LR_SCHEDULER_TYPE) == 'dynamic':
-        optimizer = optim.Adam(model.parameters(), lr=0.001)
-        # Use StepLR for dynamic learning rate adjustments
-        scheduler = StepLR(optimizer, step_size=1, gamma=0.5)
-    elif (settings.LR_SCHEDULER_TYPE) == 'cyclic':
-        optimizer = optim.SGD(model.parameters(), lr=0.001)
-        # Use CyclicLR for cyclic learning rate adjustments
-        scheduler = CyclicLR(optimizer, base_lr=0.0001, max_lr=0.001, step_size_up=15, mode='triangular2')
-    else:
-        raise ValueError("Invalid learning rate schedule type specified.")
+        # set learning rate scheduler that decreases the learning rate by a factor of 0.5 every 5 epochs or cyclitic learning rate
+        if (scheduler_i) == 'dynamic':
+            optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=0.0001)
+            # Use StepLR for dynamic learning rate adjustments
+            scheduler = StepLR(optimizer, step_size=1, gamma=0.5)
+        elif (scheduler_i) == 'cyclic':
+            optimizer = optim.SGD(model.parameters(), lr=0.001, weight_decay=0.0001)
+            # Use CyclicLR for cyclic learning rate adjustments
+            scheduler = CyclicLR(optimizer, base_lr=0.0001, max_lr=0.001, step_size_up=15, mode='triangular2')
+        else:
+            raise ValueError("Invalid learning rate schedule type specified.")
 
-    # Train the model
-    train_losses, val_losses, train_accuracies, val_accuracies = train_and_validate(model, model_name, train_loader, validation_loader, optimizer, scheduler, criteria, num_epochs=5)
+        # Train the model
+        train_losses, val_losses, train_accuracies, val_accuracies = train_and_validate(model, model_name, train_loader, validation_loader, optimizer, scheduler, criteria, num_epochs=30)
 
-    # Plot the training and validation losses and accuracies
-    plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies, model_name, settings.LR_SCHEDULER_TYPE)
+        # Plot the training and validation losses and accuracies
+        plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies, model_name, scheduler_i)
 
 
-if not os.path.exists('HMDB51_OF_model.pth'):
-    # HMDB51 - Optical Flow
-    keep_hmdb51 = ["clap", "climb", "drink", "jump", "pour", "ride_bike", "ride_horse", 
-                "run", "shoot_bow", "smoke", "throw", "wave"]
-    train_files, train_labels, test_files, test_labels = create_hmdb51_splits(keep_hmdb51)
+    if not os.path.exists(f'HMDB51_OF_model_{scheduler_i}.pth'):
+        # HMDB51 - Optical Flow
+        keep_hmdb51 = ["clap", "climb", "drink", "jump", "pour", "ride_bike", "ride_horse", 
+                    "run", "shoot_bow", "smoke", "throw", "wave"]
+        train_files, train_labels, test_files, test_labels = create_hmdb51_splits(keep_hmdb51)
 
-    # Create custom dataset
-    train_dataset = OpticalFlowDataset(train_files, train_labels, root_dir="video_OF_dataset", transform=ToTensor())
-    test_dataset = OpticalFlowDataset(test_files, test_labels, root_dir="video_OF_dataset", transform=ToTensor())
+        # Create custom dataset
+        train_dataset = OpticalFlowDataset(train_files, train_labels, root_dir="video_OF_dataset", transform=ToTensor())
+        test_dataset = OpticalFlowDataset(test_files, test_labels, root_dir="video_OF_dataset", transform=ToTensor())
 
-    # Split the training dataset into training and validation
-    validation_split = 0.15
-    num_train = len(train_dataset)
-    num_validation = int(num_train * validation_split)
-    num_train -= num_validation
-    train_data, validation_data = random_split(train_dataset, [num_train, num_validation])
+        # Split the training dataset into training and validation
+        validation_split = 0.15
+        num_train = len(train_dataset)
+        num_validation = int(num_train * validation_split)
+        num_train -= num_validation
+        train_data, validation_data = random_split(train_dataset, [num_train, num_validation])
 
-    # Setup the DataLoader for each split
-    train_loader = DataLoader(train_data, batch_size=32, shuffle=True)
-    validation_loader = DataLoader(validation_data, batch_size=32, shuffle=False)
-    test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
-    print("Data loaders created successfully.")
+        # Setup the DataLoader for each split
+        train_loader = DataLoader(train_data, batch_size=32, shuffle=True)
+        validation_loader = DataLoader(validation_data, batch_size=32, shuffle=False)
+        test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
+        print("Data loaders created successfully.")
 
-    # THIRD MODEL
-    # Initialize model, loss function, and optimizer
-    model = HMDB51_OF_model()
-    model_name = "HMDB51_OF_model"
-    criteria = nn.CrossEntropyLoss()
+        # THIRD MODEL
+        # Initialize model, loss function, and optimizer
+        model = HMDB51_OF_model()
+        model_name = "HMDB51_OF_model"
+        criteria = nn.CrossEntropyLoss()
 
-    # set learning rate scheduler that decreases the learning rate by a factor of 0.5 every 5 epochs or cyclitic learning rate
-    if (settings.LR_SCHEDULER_TYPE) == 'dynamic':
-        optimizer = optim.Adam(model.parameters(), lr=0.001)
-        # Use StepLR for dynamic learning rate adjustments
-        scheduler = StepLR(optimizer, step_size=1, gamma=0.5)
-    elif (settings.LR_SCHEDULER_TYPE) == 'cyclic':
-        optimizer = optim.SGD(model.parameters(), lr=0.0000001)
-        # Use CyclicLR for cyclic learning rate adjustments
-        scheduler = CyclicLR(optimizer, base_lr=0.0000001, max_lr=0.000001, step_size_up=15)
-    else:
-        raise ValueError("Invalid learning rate schedule type specified.")
+        # set learning rate scheduler that decreases the learning rate by a factor of 0.5 every 5 epochs or cyclitic learning rate
+        if (scheduler_i) == 'dynamic':
+            optimizer = optim.Adam(model.parameters(), lr=0.0000001, weight_decay=0.0001)
+            # Use StepLR for dynamic learning rate adjustments
+            scheduler = StepLR(optimizer, step_size=1, gamma=0.5, weight_decay=0.0001)
+        elif (scheduler_i) == 'cyclic':
+            optimizer = optim.SGD(model.parameters(), lr=0.0000001, weight_decay=0.0001)
+            # Use CyclicLR for cyclic learning rate adjustments
+            scheduler = CyclicLR(optimizer, base_lr=0.0000001, max_lr=0.000001, step_size_up=15)
+        else:
+            raise ValueError("Invalid learning rate schedule type specified.")
 
-    # Train the model
-    train_losses, val_losses, train_accuracies, val_accuracies = train_and_validate(model, model_name, train_loader, validation_loader, optimizer, scheduler, criteria, num_epochs=15)
+        # Train the model
+        train_losses, val_losses, train_accuracies, val_accuracies = train_and_validate(model, model_name, train_loader, validation_loader, optimizer, scheduler, criteria, num_epochs=75)
 
-    # Plot the training and validation losses and accuracies
-    plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies, model_name, settings.LR_SCHEDULER_TYPE)
+        # Plot the training and validation losses and accuracies
+        plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies, model_name, scheduler_i)

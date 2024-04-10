@@ -9,6 +9,7 @@ from stanford40 import create_stanford40_splits
 from PIL import Image
 import torch
 import re
+from sklearn.preprocessing import MinMaxScaler
 
 # TODO: We need to import the correct labels, even better if we do it in the other general file
 
@@ -130,6 +131,7 @@ class OpticalFlowDataset(Dataset):
         }
         self.root_dir = root_dir
         self.transform = transform
+        self.scaler = MinMaxScaler()
 
     def __len__(self):
         return len(self.file_paths)
@@ -140,6 +142,7 @@ class OpticalFlowDataset(Dataset):
         label_tensor = torch.tensor(label_idx, dtype=torch.long)
 
         flow_stack = self.load_optical_flow_stack(idx)
+        flow_stack = self.rescale_optical_flow(flow_stack)
         flow_stack = torch.tensor(flow_stack).float()
 
         return flow_stack, label_tensor
@@ -162,6 +165,12 @@ class OpticalFlowDataset(Dataset):
             flow_stack.append(flow_img)
 
         return np.stack(flow_stack)
+    
+    def rescale_optical_flow(self, flow_stack):
+        # Rescale between 0 and 1 using Min-Max Scaling
+        reshaped_stack = flow_stack.reshape(-1, 1)
+        scaled_stack = self.scaler.fit_transform(reshaped_stack).reshape(flow_stack.shape)
+        return scaled_stack
 
 # TODO: Implement the custom dataset class for the two-stream dataset
 

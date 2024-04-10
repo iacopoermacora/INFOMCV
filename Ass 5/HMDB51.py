@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import cv2
 from tqdm import tqdm
 import settings
+import numpy as np
 
 # HMDB51 DATASET
 def create_hmdb51_splits(keep_hmdb51):
