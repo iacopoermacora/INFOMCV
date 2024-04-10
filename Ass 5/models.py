@@ -56,29 +56,29 @@ def HMDB51_model(num_classes=12, dropout_prob=0.5):
 # 3. HMDB51 – Optical flow: Create a new CNN and train it on the optical flow of videos in HMBD51. You can use the middle frame
 #    (max 5 points) or stack a fixed number (e.g., 16) of optical flow frames together (max 10 points).
 
-class HMDB51_OF_model(nn.Module):
+class HMDB51_OF_model_OLD(nn.Module):
     def __init__(self):
         super(HMDB51_OF_model, self).__init__()
         self.conv1 = nn.Sequential(
             nn.Conv2d(in_channels=32, out_channels=96, kernel_size=7, stride=2), # TODO: Change in_channels accordingly
             nn.BatchNorm2d(96),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2)
+            nn.MaxPool2d(kernel_size=3, stride=2)
         )
         self.conv2 = nn.Sequential(
-            nn.Conv2d(in_channels=96, out_channels=256, kernel_size=5, stride=2),
+            nn.Conv2d(in_channels=96, out_channels=256, kernel_size=5, stride=2, padding=1),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2)
+            nn.MaxPool2d(kernel_size=3, stride=2)
         )
         self.conv3 = nn.Conv2d(in_channels=256, out_channels=512, kernel_size=3, stride=1, padding=1)
         self.conv4 = nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, stride=1, padding=1)
         self.conv5 = nn.Sequential(
             nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2)
+            nn.MaxPool2d(kernel_size=3, stride=2)
         )
         self.full6 = nn.Sequential(
-            nn.Linear(512*6*6, 4096),
+            nn.Linear(512*5*5, 4096),
             nn.ReLU(),
             nn.Dropout(p=0.5)
         )
@@ -87,7 +87,7 @@ class HMDB51_OF_model(nn.Module):
             nn.ReLU(),
             nn.Dropout(p=0.5)
         )
-        self.linear = nn.Linear(2048, 12)  # Assuming num_classes is defined
+        self.linear = nn.Linear(2048, 12)
         self.softmax = nn.Softmax(dim=1)
         
     def forward(self, x):
@@ -103,6 +103,22 @@ class HMDB51_OF_model(nn.Module):
         x = self.softmax(x)
         return x
 
+def HMDB51_OF_model(num_classes=12, dropout_prob=0.5):
+    # Load the pre-trained ResNet-50 model
+    model = models.resnet50(weights='ResNet50_Weights.DEFAULT')
+    
+    # Change the first layer to accept 32 channels instead of 3
+    model.conv1 = nn.Conv2d(32, 64, kernel_size=7, stride=2, padding=3, bias=False)
+    # Modify the output layer to have num_classes classes
+    num_ftrs = model.fc.in_features
+    # Create a new Sequential model for the classifier
+    # It includes a Dropout layer followed by the final Linear layer
+    model.fc = nn.Sequential(
+        nn.Dropout(dropout_prob),  # Add dropout with a probability of dropout_prob
+        nn.Linear(num_ftrs, num_classes)
+    )
+    
+    return model
 
 # 4. HMDB51 – Two-stream: Finally, create a two-stream CNN with one stream for the frames and one stream for the optical flow. 
 #    Use your pre-trained CNNs to initialize the weights of the two branches. Think about how to fuse the two streams and motivate 

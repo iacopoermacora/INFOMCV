@@ -34,6 +34,10 @@ def train_and_validate(model, model_name, train_loader, validation_loader, optim
         
         for inputs, labels in tqdm(train_loader):
             # inputs, labels = inputs.to(device), labels.to(device)
+            # Save in a text file all the labels
+            with open(f'{model_name}_labels_order.txt', 'a') as f:
+                for label in labels:
+                    f.write(f'{label}\n')
             optimizer.zero_grad()
             outputs = model(inputs)
             loss = criteria(outputs, labels)
@@ -55,6 +59,8 @@ def train_and_validate(model, model_name, train_loader, validation_loader, optim
             if isinstance(scheduler, CyclicLR):
                 learning_rates.append(optimizer.param_groups[0]['lr'])
                 scheduler.step()
+        with open(f'{model_name}_predict_order.txt', 'a') as f:
+            f.write('\n\n')
         
         # Update learning rate after each epoch for other schedulers
         if not isinstance(scheduler, CyclicLR):
@@ -78,12 +84,16 @@ def train_and_validate(model, model_name, train_loader, validation_loader, optim
                 
                 total_val_loss += val_loss.item() * inputs.size(0)
                 _, predicted = torch.max(outputs, 1)
+                with open(f'{model_name}_predict_order.txt', 'a') as f:
+                    f.write(f'{predicted}\n')
                 total_val_correct += (predicted == labels).sum().item()
                 total_val_samples += labels.size(0)
 
                 # Collect all predictions and true labels
                 all_preds.extend(predicted.view(-1).cpu().numpy())
                 all_true.extend(labels.view(-1).cpu().numpy())
+        with open(f'{model_name}_predict_order.txt', 'a') as f:
+            f.write('\n\n')
 
         avg_val_loss = total_val_loss / total_val_samples
         val_accuracy = total_val_correct / total_val_samples

@@ -151,9 +151,9 @@ if not os.path.exists('HMDB51_OF_model.pth'):
         # Use StepLR for dynamic learning rate adjustments
         scheduler = StepLR(optimizer, step_size=1, gamma=0.5)
     elif (settings.LR_SCHEDULER_TYPE) == 'cyclic':
-        optimizer = optim.SGD(model.parameters(), lr=0.001)
+        optimizer = optim.SGD(model.parameters(), lr=0.0000001)
         # Use CyclicLR for cyclic learning rate adjustments
-        scheduler = CyclicLR(optimizer, base_lr=0.0001, max_lr=0.001, step_size_up=15)
+        scheduler = CyclicLR(optimizer, base_lr=0.0000001, max_lr=0.000001, step_size_up=15)
     else:
         raise ValueError("Invalid learning rate schedule type specified.")
 
