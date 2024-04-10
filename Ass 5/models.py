@@ -82,7 +82,8 @@ class HMDB51_OF_model(nn.Module):
             nn.ReLU(),
             nn.Dropout(p=0.5)
         )
-        self.softmax = nn.Linear(2048, 12)  # Assuming num_classes is defined
+        self.linear = nn.Linear(2048, 12)  # Assuming num_classes is defined
+        self.softmax = nn.Softmax(dim=1)
         
     def forward(self, x):
         x = self.conv1(x)
@@ -93,6 +94,7 @@ class HMDB51_OF_model(nn.Module):
         x = x.view(x.size(0), -1)  # Flatten the output of conv5 for FC layers
         x = self.full6(x)
         x = self.full7(x)
+        x = self.linear(x)
         x = self.softmax(x)
         return x
 
