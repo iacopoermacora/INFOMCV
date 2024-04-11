@@ -6,7 +6,7 @@ from train import initialize_model, train_and_validate, plot_metrics, plot_learn
 from torch.optim.lr_scheduler import CyclicLR, StepLR
 import settings
 import matplotlib.pyplot as plt
-from models import Stanford40_model, HMDB51_model, HMDB51_OF_model, HMDB51_OF_VGG_model, ActionRecognitionModel
+from models import Stanford40_model, HMDB51_model, HMDB51_OF_model, Conv2Plus1Model
 from datasets import CustomStandford40Dataset, VideoFrameDataset, OpticalFlowDataset, OpticalFlowDataset_PY
 from torch.utils.data import Dataset, DataLoader, random_split
 from torchvision.transforms import ToTensor
@@ -179,8 +179,8 @@ if not os.path.exists(f'HMDB51_OF_model_{settings.LR_SCHEDULER_TYPE}.pth'):
 
     # THIRD MODEL
     # Initialize model, loss function, and optimizer
-    model = ActionRecognitionModel()
-    model_name = "ActionRecognitionModel"
+    model = Conv2Plus1Model()
+    model_name = "Conv2Plus1Model"
     criteria = nn.CrossEntropyLoss()
 
     # set learning rate scheduler that decreases the learning rate by a factor of 0.5 every 5 epochs or cyclitic learning rate

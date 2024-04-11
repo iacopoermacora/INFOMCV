@@ -538,7 +538,7 @@ def PY_extract_optical_flow_and_save(video_path, output_folder):
         flow = cv2.calcOpticalFlowFarneback(frame1_gray, frame2_gray, None, 0.5, 3, 15, 3, 5, 1.2, 0)
 
         # Visualize the optical flow
-        cv2.imwrite('Optical Flow.png', draw_flow(frame1_gray, flow))
+        # cv2.imwrite('Optical Flow.png', draw_flow(frame1_gray, flow))
 
         total_flow[i] = flow
 

@@ -2,6 +2,8 @@ import torch
 from torchsummary import summary
 import torch.nn as nn
 import torchvision.models as models
+import torch.nn.functional as F
+import numpy as np
 
 # 1. Stanford 40 – Frames: Create a CNN and train it on the images in Stanford 40. Naturally, you will have 12 output classes.
 
@@ -120,85 +122,6 @@ def HMDB51_OF_model(num_classes=12, dropout_prob=0.5):
     
     return model
 
-def Fashion_model(num_classes=10, dropout_prob=0.5):
-    # Load the pre-trained ResNet-50 model
-    model = models.resnet50(weights='ResNet50_Weights.DEFAULT')
-    
-    # Change the first layer to accept 32 channels instead of 3
-    model.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
-    model.maxpool = nn.MaxPool2d(kernel_size=1, stride=1)
-    # Modify the output layer to have num_classes classes
-    num_ftrs = model.fc.in_features
-    # Create a new Sequential model for the classifier
-    # It includes a Dropout layer followed by the final Linear layer
-    model.fc = nn.Sequential(
-        nn.Dropout(dropout_prob),  # Add dropout with a probability of dropout_prob
-        nn.Linear(num_ftrs, num_classes)
-    )
-    
-    return model
-
-def HMDB51_OF_VGG_model(num_classes=12, dropout_prob=0.5):
-    # Load the pre-trained VGG-16 model
-    model = models.vgg16(weights='VGG16_Weights.DEFAULT')
-    
-    # Change the first layer to accept 32 channels instead of 3
-    model.features[0] = nn.Conv2d(32, 64, kernel_size=3, padding=1)
-    # Modify the output layer to have num_classes classes
-    num_ftrs = model.classifier[6].in_features
-    # Create a new Sequential model for the classifier
-    # It includes a Dropout layer followed by the final Linear layer
-    model.classifier[6] = nn.Sequential(
-        nn.Dropout(dropout_prob),  # Add dropout with a probability of dropout_prob
-        nn.Linear(num_ftrs, num_classes)
-    )
-    
-    return model
-
-class ActionRecognitionModel(nn.Module):
-    def __init__(self, num_classes=12):
-        super(ActionRecognitionModel, self).__init__()
-        
-        self.conv1 = nn.Conv3d(2, 64, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv3d(64, 128, kernel_size=3, padding=1)
-        self.pool1 = nn.MaxPool3d(kernel_size=2, stride=2)
-        
-        self.conv3 = nn.Conv3d(128, 256, kernel_size=3, padding=1)
-        self.conv4 = nn.Conv3d(256, 256, kernel_size=3, padding=1)
-        self.pool2 = nn.MaxPool3d(kernel_size=2, stride=2)
-        
-        self.conv5 = nn.Conv3d(256, 512, kernel_size=3, padding=1)
-        self.conv6 = nn.Conv3d(512, 512, kernel_size=3, padding=1)
-        self.conv7 = nn.Conv3d(512, 512, kernel_size=3, padding=1)
-        self.pool3 = nn.MaxPool3d(kernel_size=3, stride=3)
-        
-        self.fc1 = nn.Linear(512*6*6*1, 4096)
-        self.fc2 = nn.Linear(4096, 4096)
-        self.fc3 = nn.Linear(4096, num_classes)
-        
-        self.relu = nn.ReLU(inplace=True)
-        
-    def forward(self, x):
-        x = self.relu(self.conv1(x))
-        x = self.relu(self.conv2(x))
-        x = self.pool1(x)
-        
-        x = self.relu(self.conv3(x))
-        x = self.relu(self.conv4(x))
-        x = self.pool2(x)
-        
-        x = self.relu(self.conv5(x))
-        x = self.relu(self.conv6(x))
-        x = self.relu(self.conv7(x))
-        x = self.pool3(x)
-        
-        x = x.view(-1, 512*1*6*6)
-        x = self.relu(self.fc1(x))
-        x = self.relu(self.fc2(x))
-        x = self.fc3(x)
-        
-        return x
-
 # 4. HMDB51 – Two-stream: Finally, create a two-stream CNN with one stream for the frames and one stream for the optical flow. 
 #    Use your pre-trained CNNs to initialize the weights of the two branches. Think about how to fuse the two streams and motivate 
 #    this in your report. Look at the Q&A at the end of this assignment. Fine-tune the network.
@@ -212,15 +135,10 @@ class ActionRecognitionModel(nn.Module):
 
 #####################################################################################################################################
 
-
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-
 class Conv2Plus1D(nn.Module):
-    def __init__(self, filters, kernel_size, padding):
+    def __init__(self, in_channels, filters, kernel_size, padding):
         super(Conv2Plus1D, self).__init__()
-        self.spatial_conv = nn.Conv3d(in_channels=filters,
+        self.spatial_conv = nn.Conv3d(in_channels=in_channels,
                                       out_channels=filters,
                                       kernel_size=(1, kernel_size[1], kernel_size[2]),
                                       padding=padding)
@@ -235,51 +153,56 @@ class Conv2Plus1D(nn.Module):
         return x
 
 class ResidualMain(nn.Module):
-    def __init__(self, filters, kernel_size):
+    def __init__(self, in_channels, filters, kernel_size):
         super(ResidualMain, self).__init__()
         self.seq = nn.Sequential(
-            Conv2Plus1D(filters=filters,
+            Conv2Plus1D(in_channels=in_channels,
+                        filters=filters,
                         kernel_size=kernel_size,
                         padding='same'),
             nn.ReLU(),
-            Conv2Plus1D(filters=filters,
+            Conv2Plus1D(in_channels=filters,
+                        filters=filters,
                         kernel_size=kernel_size,
                         padding='same')
         )
+        self.downsample = None
+        if in_channels != filters:
+            self.downsample = nn.Sequential(
+                nn.Conv3d(in_channels, filters, kernel_size=1, bias=False),
+            )
     
     def forward(self, x):
-        return self.seq(x)
+        res = x
+        x = self.seq(x)
+        if self.downsample is not None:
+            res = self.downsample(res)
 
-class Project(nn.Module):
-    def __init__(self, units, input_filters):
+        return x + res
+
+'''class Project(nn.Module):
+    def __init__(self, input, output):
         super(Project, self).__init__()
-        self.linear = nn.Linear(input_filters, units)
+        in_features = int(np.prod(input[1:]))
+        out_features = int(np.prod(output[1:]))
+        self.linear = nn.Linear(in_features, out_features)
     
     def forward(self, x):
-        x = x.mean(dim=[2, 3, 4]) # Global average pooling over spatial and temporal dimensions
         x = self.linear(x)
-        return x
-
-def add_residual_block(input, filters, kernel_size):
-    residual = input
-    out = ResidualMain(filters, kernel_size)(input)
-    
-    if out.shape[1] != input.shape[1]: # Check the channel dimension
-        residual = Project(out.shape[1], input.shape[1])(residual)
-    
-    return out + residual
+        return x'''
 
 class Conv2Plus1Model(nn.Module):
-    def __init__(self, height, width):
+    def __init__(self):
         super(Conv2Plus1Model, self).__init__()
-        self.initial_conv = Conv2Plus1D(filters=8, kernel_size=(3, 3, 3), padding="same")
+        self.initial_conv = Conv2Plus1D(in_channels=2, filters=8, kernel_size=(3, 3, 3), padding="same")
         self.relu = nn.ReLU()
         self.res_blocks = nn.ModuleList([
-            self._make_layer(16, (3, 3, 3)),
-            self._make_layer(32, (3, 3, 3)),
-            self._make_layer(64, (3, 3, 3)),
-            self._make_layer(128, (3, 3, 3))
+            ResidualMain(8, 16, (3, 3, 3)),
+            ResidualMain(16, 32, (3, 3, 3)),
+            ResidualMain(32, 64, (3, 3, 3)),
+            ResidualMain(64, 128, (3, 3, 3))
         ])
+        self.max_pool = nn.MaxPool3d(kernel_size=2)
         self.global_avg_pool = nn.AdaptiveAvgPool3d((1, 1, 1))
         self.flatten = nn.Flatten()
         self.dense1 = nn.Linear(128, 128)
@@ -288,10 +211,7 @@ class Conv2Plus1Model(nn.Module):
     
     def _make_layer(self, filters, kernel_size):
         layer = nn.Sequential(
-            add_residual_block,
-            nn.MaxPool3d(kernel_size=2),
-            filters,
-            kernel_size
+            ResidualMain(filters, kernel_size)(),
         )
         return layer
     
@@ -300,10 +220,16 @@ class Conv2Plus1Model(nn.Module):
         x = self.relu(x)
         for block in self.res_blocks:
             x = block(x)
+            # Add max pooling after each residual block except the last one
+            if block != self.res_blocks[-1]:
+                x = self.max_pool(x)
         x = self.global_avg_pool(x)
         x = self.flatten(x)
         x = F.relu(self.dense1(x))
         x = self.dropout(x)
         x = self.final_dense(x)
         return x
+    
+'''model = Conv2Plus1Model()
+summary(model, (2, 16, 72, 72))  # Change the input shape accordingly'''
 
