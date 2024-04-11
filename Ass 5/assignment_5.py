@@ -14,7 +14,7 @@ import os
 from evaluate import test_model
 import torch
 
-# STANFORD40 - FRAMES
+'''# STANFORD40 - FRAMES
 if not os.path.exists(f'Stanford40_model_{settings.LR_SCHEDULER_TYPE}.pth'):
     # Create Stanford40 dataset
     train_files, train_labels, test_files, test_labels = create_stanford40_splits()
@@ -149,7 +149,7 @@ if not os.path.exists(f'plots/confusion_matrix_HMDB51_model_{settings.LR_SCHEDUL
         model = HMDB51_model()
         model.load_state_dict(torch.load(f'HMDB51_model_cyclic.pth'))
         test_accuracy, confusion_matrix = test_model(model, test_loader, device='cpu')
-        print(f'Test accuracy: {test_accuracy:.2f}% for HMDB51_model_cyclic.pth')
+        print(f'Test accuracy: {test_accuracy:.2f}% for HMDB51_model_cyclic.pth')'''
  
 
 

@@ -203,3 +203,107 @@ class ActionRecognitionModel(nn.Module):
 #    Use your pre-trained CNNs to initialize the weights of the two branches. Think about how to fuse the two streams and motivate 
 #    this in your report. Look at the Q&A at the end of this assignment. Fine-tune the network.
 
+
+
+
+
+
+
+
+#####################################################################################################################################
+
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class Conv2Plus1D(nn.Module):
+    def __init__(self, filters, kernel_size, padding):
+        super(Conv2Plus1D, self).__init__()
+        self.spatial_conv = nn.Conv3d(in_channels=filters,
+                                      out_channels=filters,
+                                      kernel_size=(1, kernel_size[1], kernel_size[2]),
+                                      padding=padding)
+        self.temporal_conv = nn.Conv3d(in_channels=filters,
+                                       out_channels=filters,
+                                       kernel_size=(kernel_size[0], 1, 1),
+                                       padding=padding)
+    
+    def forward(self, x):
+        x = self.spatial_conv(x)
+        x = self.temporal_conv(x)
+        return x
+
+class ResidualMain(nn.Module):
+    def __init__(self, filters, kernel_size):
+        super(ResidualMain, self).__init__()
+        self.seq = nn.Sequential(
+            Conv2Plus1D(filters=filters,
+                        kernel_size=kernel_size,
+                        padding='same'),
+            nn.ReLU(),
+            Conv2Plus1D(filters=filters,
+                        kernel_size=kernel_size,
+                        padding='same')
+        )
+    
+    def forward(self, x):
+        return self.seq(x)
+
+class Project(nn.Module):
+    def __init__(self, units, input_filters):
+        super(Project, self).__init__()
+        self.linear = nn.Linear(input_filters, units)
+    
+    def forward(self, x):
+        x = x.mean(dim=[2, 3, 4]) # Global average pooling over spatial and temporal dimensions
+        x = self.linear(x)
+        return x
+
+def add_residual_block(input, filters, kernel_size):
+    residual = input
+    out = ResidualMain(filters, kernel_size)(input)
+    
+    if out.shape[1] != input.shape[1]: # Check the channel dimension
+        residual = Project(out.shape[1], input.shape[1])(residual)
+    
+    return out + residual
+
+class Conv2Plus1Model(nn.Module):
+    def __init__(self, height, width):
+        super(Conv2Plus1Model, self).__init__()
+        self.initial_conv = Conv2Plus1D(filters=8, kernel_size=(3, 3, 3), padding="same")
+        self.relu = nn.ReLU()
+        self.res_blocks = nn.ModuleList([
+            self._make_layer(16, (3, 3, 3)),
+            self._make_layer(32, (3, 3, 3)),
+            self._make_layer(64, (3, 3, 3)),
+            self._make_layer(128, (3, 3, 3))
+        ])
+        self.global_avg_pool = nn.AdaptiveAvgPool3d((1, 1, 1))
+        self.flatten = nn.Flatten()
+        self.dense1 = nn.Linear(128, 128)
+        self.dropout = nn.Dropout(0.35)
+        self.final_dense = nn.Linear(128, 12)
+    
+    def _make_layer(self, filters, kernel_size):
+        layer = nn.Sequential(
+            add_residual_block,
+            nn.MaxPool3d(kernel_size=2),
+            filters,
+            kernel_size
+        )
+        return layer
+    
+    def forward(self, x):
+        x = self.initial_conv(x)
+        x = self.relu(x)
+        for block in self.res_blocks:
+            x = block(x)
+        x = self.global_avg_pool(x)
+        x = self.flatten(x)
+        x = F.relu(self.dense1(x))
+        x = self.dropout(x)
+        x = self.final_dense(x)
+        return x
+
