@@ -206,7 +206,6 @@ def extract_optical_flow_and_save(video_path, output_folder):
         print("#" * 200)
         print(f"Video {video_path} has less than 16 frames.")
     step_size = frame_count // 17
-    count = 0
     for i, idx in enumerate(range(0, frame_count, step_size)):  # Extract 16 evenly spaced frames
         if i > 15:
             break
@@ -251,8 +250,6 @@ def extract_optical_flow_and_save(video_path, output_folder):
         cv2.imwrite(os.path.join(output_folder, f"{os.path.splitext(video_file)[0]}_{idx}_u.png"), u_resized)
         cv2.imwrite(os.path.join(output_folder, f"{os.path.splitext(video_file)[0]}_{idx}_v.png"), v_resized)
 
-        count += 2
-
     cap.release()
 
 def extract_frames(video_path, output_folder):
@@ -293,6 +290,277 @@ def get_images_from_video(input_folder, output_root):
                 output_folder = os.path.join(output_root, relative_folder)
                 extract_frames(video_path, output_folder)
 
+
+################################################################################################################################################################################################
+
+def SUBSEQUENT_extract_optical_flow_and_save(video_path, output_folder):
+    cap = cv2.VideoCapture(video_path)
+    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+    os.makedirs(output_folder, exist_ok=True)
+
+    # Check if it exsists a file in the output folder that starts with the same name as the video file
+    if any(file.startswith(os.path.splitext(video_file)[0]) for file in os.listdir(output_folder)):
+        print(f"Optical flow images for {video_path} already exist. Skipping the extraction.")
+        return
+    else:
+        print(f"Extracting optical flow images for {video_path}")
+
+    if frame_count < 16:
+        print("#" * 200)
+        print(f"Video {video_path} has less than 16 frames.")
+    middle_frame = frame_count // 2
+    first_frame = middle_frame - 8
+    last_frame = middle_frame + 8
+    step_size = 1
+    for i, idx in enumerate(range(first_frame, last_frame, step_size)):  # Extract 16 evenly spaced frames
+        if i > 15:
+            break
+        
+        # Set the frame position to the desired frame number
+        cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
+        ret, frame1 = cap.read()
+        cap.set(cv2.CAP_PROP_POS_FRAMES, idx + step_size)
+        ret, frame2 = cap.read()
+        
+        if not ret:
+            break
+
+        frame1_gray = cv2.cvtColor(frame1, cv2.COLOR_BGR2GRAY)
+        frame2_gray = cv2.cvtColor(frame2, cv2.COLOR_BGR2GRAY)
+
+        flow = cv2.calcOpticalFlowFarneback(frame1_gray, frame2_gray, None, 0.5, 3, 15, 3, 5, 1.2, 0)
+
+        '''# Calculate magnitude and angle
+        mag, _ = cv2.cartToPolar(flow[..., 0], flow[..., 1])
+
+        # Normalize magnitude to range [0, 255] and save as grayscale image
+        mag = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
+
+        # Resize the image to 112x112
+        mag_resized = cv2.resize(mag, (112, 112), interpolation=cv2.INTER_AREA)
+
+        cv2.imwrite(os.path.join(output_folder, f"{os.path.splitext(video_file)[0]}_{idx}.png"), mag_resized)'''
+
+        # Separate u and v displacements
+        u, v = flow[..., 0], flow[..., 1]
+
+        # Normalize u and v to range [0, 255] and save as grayscale images
+        u_normalized = cv2.normalize(u, None, 0, 255, cv2.NORM_MINMAX)
+        v_normalized = cv2.normalize(v, None, 0, 255, cv2.NORM_MINMAX)
+
+        # Resize the images to 112x112
+        u_resized = cv2.resize(u_normalized, (224, 224), interpolation=cv2.INTER_AREA)
+        v_resized = cv2.resize(v_normalized, (224, 224), interpolation=cv2.INTER_AREA)
+
+        # Save u and v displacement images
+        cv2.imwrite(os.path.join(output_folder, f"{os.path.splitext(video_file)[0]}_{idx}_u.png"), u_resized)
+        cv2.imwrite(os.path.join(output_folder, f"{os.path.splitext(video_file)[0]}_{idx}_v.png"), v_resized)
+
+    cap.release()
+
+def ONE_STACK_SUBSEQUENT_extract_optical_flow_and_save(video_path, output_folder):
+    cap = cv2.VideoCapture(video_path)
+    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+    os.makedirs(output_folder, exist_ok=True)
+
+    # Check if it exsists a file in the output folder that starts with the same name as the video file
+    if any(file.startswith(os.path.splitext(video_file)[0]) for file in os.listdir(output_folder)):
+        print(f"Optical flow images for {video_path} already exist. Skipping the extraction.")
+        return
+    else:
+        print(f"Extracting optical flow images for {video_path}")
+
+    if frame_count < 16:
+        print("#" * 200)
+        print(f"Video {video_path} has less than 16 frames.")
+    middle_frame = frame_count // 2
+    first_frame = middle_frame - 8
+    last_frame = middle_frame + 8
+    step_size = 1
+    for i, idx in enumerate(range(first_frame, last_frame, step_size)):  # Extract 16 evenly spaced frames
+        if i > 15:
+            break
+        
+        # Set the frame position to the desired frame number
+        cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
+        ret, frame1 = cap.read()
+        cap.set(cv2.CAP_PROP_POS_FRAMES, idx + step_size)
+        ret, frame2 = cap.read()
+        
+        if not ret:
+            break
+
+        frame1_gray = cv2.cvtColor(frame1, cv2.COLOR_BGR2GRAY)
+        frame2_gray = cv2.cvtColor(frame2, cv2.COLOR_BGR2GRAY)
+
+        flow = cv2.calcOpticalFlowFarneback(frame1_gray, frame2_gray, None, 0.5, 3, 15, 3, 5, 1.2, 0)
+
+        # Calculate magnitude and angle
+        mag, _ = cv2.cartToPolar(flow[..., 0], flow[..., 1])
+
+        # Normalize magnitude to range [0, 255] and save as grayscale image
+        mag = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
+
+        # Resize the image to 112x112
+        mag_resized = cv2.resize(mag, (112, 112), interpolation=cv2.INTER_AREA)
+
+        cv2.imwrite(os.path.join(output_folder, f"{os.path.splitext(video_file)[0]}_{idx}.png"), mag_resized)
+
+        '''# Separate u and v displacements
+        u, v = flow[..., 0], flow[..., 1]
+
+        # Normalize u and v to range [0, 255] and save as grayscale images
+        u_normalized = cv2.normalize(u, None, 0, 255, cv2.NORM_MINMAX)
+        v_normalized = cv2.normalize(v, None, 0, 255, cv2.NORM_MINMAX)
+
+        # Resize the images to 112x112
+        u_resized = cv2.resize(u_normalized, (224, 224), interpolation=cv2.INTER_AREA)
+        v_resized = cv2.resize(v_normalized, (224, 224), interpolation=cv2.INTER_AREA)
+
+        # Save u and v displacement images
+        cv2.imwrite(os.path.join(output_folder, f"{os.path.splitext(video_file)[0]}_{idx}_u.png"), u_resized)
+        cv2.imwrite(os.path.join(output_folder, f"{os.path.splitext(video_file)[0]}_{idx}_v.png"), v_resized)'''
+
+    cap.release()
+
+def SUBSEQUENT_MEAN_extract_optical_flow_and_save(video_path, output_folder):
+    cap = cv2.VideoCapture(video_path)
+    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+    os.makedirs(output_folder, exist_ok=True)
+
+    # Check if it exsists a file in the output folder that starts with the same name as the video file
+    if any(file.startswith(os.path.splitext(video_file)[0]) for file in os.listdir(output_folder)):
+        print(f"Optical flow images for {video_path} already exist. Skipping the extraction.")
+        return
+    else:
+        print(f"Extracting optical flow images for {video_path}")
+
+    if frame_count < 16:
+        print("#" * 200)
+        print(f"Video {video_path} has less than 16 frames.")
+    middle_frame = frame_count // 2
+    first_frame = middle_frame - 8
+    last_frame = middle_frame + 8
+    step_size = 1
+    for i, idx in enumerate(range(first_frame, last_frame, step_size)):  # Extract 16 evenly spaced frames
+        if i > 15:
+            break
+        
+        # Set the frame position to the desired frame number
+        cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
+        ret, frame1 = cap.read()
+        cap.set(cv2.CAP_PROP_POS_FRAMES, idx + step_size)
+        ret, frame2 = cap.read()
+        
+        if not ret:
+            break
+
+        frame1_gray = cv2.cvtColor(frame1, cv2.COLOR_BGR2GRAY)
+        frame2_gray = cv2.cvtColor(frame2, cv2.COLOR_BGR2GRAY)
+
+        # Resize the images to 224x224
+        frame1_gray = cv2.resize(frame1_gray, (224, 224), interpolation=cv2.INTER_AREA)
+        frame2_gray = cv2.resize(frame2_gray, (224, 224), interpolation=cv2.INTER_AREA)
+
+        # Apply gaussian filter before calculating optical flow
+        frame1_gray = cv2.GaussianBlur(frame1_gray, (7, 7), 0)
+        frame2_gray = cv2.GaussianBlur(frame2_gray, (7, 7), 0)
+
+        # Calculate optical flow
+        flow = cv2.calcOpticalFlowFarneback(frame1_gray, frame2_gray, None, 0.5, 3, 15, 3, 5, 1.2, 0)
+
+        # Separate u and v displacements
+        u, v = flow[..., 0], flow[..., 1]
+
+        # Calculate the mean displacement vector
+        mean_u = u.mean()
+        mean_v = v.mean()
+
+        # Subtract the mean displacement vector from u and v
+        u -= mean_u
+        v -= mean_v
+
+        # Normalize u and v to range [0, 255] and save as grayscale images
+        u_normalized = cv2.normalize(u, None, 0, 255, cv2.NORM_MINMAX)
+        v_normalized = cv2.normalize(v, None, 0, 255, cv2.NORM_MINMAX)
+
+        # Save u and v displacement images
+        cv2.imwrite(os.path.join(output_folder, f"{os.path.splitext(video_file)[0]}_{idx}_u.png"), u_normalized)
+        cv2.imwrite(os.path.join(output_folder, f"{os.path.splitext(video_file)[0]}_{idx}_v.png"), v_normalized)
+
+    cap.release()
+
+def PY_extract_optical_flow_and_save(video_path, output_folder):
+    cap = cv2.VideoCapture(video_path)
+    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+    os.makedirs(output_folder, exist_ok=True)
+
+    # Check if it exsists a file in the output folder that starts with the same name as the video file
+    if any(file.startswith(os.path.splitext(video_file)[0]) for file in os.listdir(output_folder)):
+        print(f"Optical flow images for {video_path} already exist. Skipping the extraction.")
+        return
+    else:
+        print(f"Extracting optical flow images for {video_path}")
+
+    if frame_count < 16:
+        print("#" * 200)
+        print(f"Video {video_path} has less than 16 frames.")
+    middle_frame = frame_count // 2
+    first_frame = middle_frame - 8
+    last_frame = middle_frame + 8
+    step_size = 1
+    total_flow = np.zeros((16, 72, 72, 2))
+    for i, idx in enumerate(range(first_frame, last_frame, step_size)):  # Extract 16 evenly spaced frames
+        if i > 15:
+            break
+        
+        # Set the frame position to the desired frame number
+        cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
+        ret, frame1 = cap.read()
+        cap.set(cv2.CAP_PROP_POS_FRAMES, idx + step_size)
+        ret, frame2 = cap.read()
+        
+        if not ret:
+            break
+
+        frame1_gray = cv2.cvtColor(frame1, cv2.COLOR_BGR2GRAY)
+        frame2_gray = cv2.cvtColor(frame2, cv2.COLOR_BGR2GRAY)
+
+        # Resize the images to 224x224
+        frame1_gray = cv2.resize(frame1_gray, (72, 72), interpolation=cv2.INTER_AREA)
+        frame2_gray = cv2.resize(frame2_gray, (72, 72), interpolation=cv2.INTER_AREA)
+
+        # Calculate optical flow
+        flow = cv2.calcOpticalFlowFarneback(frame1_gray, frame2_gray, None, 0.5, 3, 15, 3, 5, 1.2, 0)
+
+        # Visualize the optical flow
+        cv2.imwrite('Optical Flow.png', draw_flow(frame1_gray, flow))
+
+        total_flow[i] = flow
+
+    # Save the total flow as a numpy array
+    np.save(os.path.join(output_folder, f"{os.path.splitext(video_file)[0]}_flow.npy"), total_flow)
+
+    cap.release()
+
+def draw_flow(img, flow, step=16):
+    h, w = img.shape
+    y, x = np.mgrid[step//2:h:step, step//2:w:step].reshape(2, -1).astype(int)
+    fx, fy = flow[y, x].T
+    lines = np.vstack([x, y, x+fx, y+fy]).T.reshape(-1, 2, 2)
+    lines = np.int32(lines + 0.5)
+    vis = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    cv2.polylines(vis, lines, 0, (0, 255, 0))
+    for (x1, y1), (x2, y2) in lines:
+        cv2.circle(vis, (x1, y1), 1, (0, 255, 0), -1)
+    return vis
+
+################################################################################################################################################################################################ 
+
 keep_hmdb51 = ["clap", "climb", "drink", "jump", "pour", "ride_bike", "ride_horse", 
             "run", "shoot_bow", "smoke", "throw", "wave"]
 train_files, train_labels, test_files, test_labels = create_hmdb51_splits(keep_hmdb51)
@@ -303,19 +571,31 @@ if settings.DATA_ANALYSIS:
     check_video_length(train_files, train_labels, test_files, test_labels, keep_hmdb51)
     check_frame_size(train_files, train_labels, test_files, test_labels, keep_hmdb51)
 
-# Extract optical flow images
 if not os.path.exists("video_OF_dataset"):
     # Create optical flow images for training set
     for i, (video_file, video_label) in tqdm(enumerate(zip(train_files, train_labels))):
         video_path = os.path.join("video_data", video_label, video_file)
         output_folder = os.path.join("video_OF_dataset", video_label)
-        extract_optical_flow_and_save(video_path, output_folder)
+        SUBSEQUENT_MEAN_extract_optical_flow_and_save(video_path, output_folder)
 
     # Create optical flow images for test set
     for i, (video_file, video_label) in tqdm(enumerate(zip(test_files, test_labels))):
         video_path = os.path.join("video_data", video_label, video_file)
         output_folder = os.path.join("video_OF_dataset", video_label)
-        extract_optical_flow_and_save(video_path, output_folder)
+        SUBSEQUENT_MEAN_extract_optical_flow_and_save(video_path, output_folder)
+
+if not os.path.exists("video_OF_py_dataset"):
+    # Create optical flow images for training set
+    for i, (video_file, video_label) in tqdm(enumerate(zip(train_files, train_labels))):
+        video_path = os.path.join("video_data", video_label, video_file)
+        output_folder = os.path.join("video_OF_py_dataset", video_label)
+        PY_extract_optical_flow_and_save(video_path, output_folder)
+
+    # Create optical flow images for test set
+    for i, (video_file, video_label) in tqdm(enumerate(zip(test_files, test_labels))):
+        video_path = os.path.join("video_data", video_label, video_file)
+        output_folder = os.path.join("video_OF_py_dataset", video_label)
+        PY_extract_optical_flow_and_save(video_path, output_folder)
 
 # Extract frames
 if not os.path.exists("video_image_dataset"):

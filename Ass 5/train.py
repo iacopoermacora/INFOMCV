@@ -35,14 +35,11 @@ def train_and_validate(model, model_name, train_loader, validation_loader, optim
         for inputs, labels in tqdm(train_loader):
             # inputs, labels = inputs.to(device), labels.to(device)
             # Save in a text file all the labels
-            with open(f'{model_name}_labels_order.txt', 'a') as f:
-                for label in labels:
-                    f.write(f'{label}\n')
             optimizer.zero_grad()
             outputs = model(inputs)
             loss = criteria(outputs, labels)
 
-            '''            # Calculate L1 regularization (sum of absolute values of all trainable parameters)
+            '''# Calculate L1 regularization (sum of absolute values of all trainable parameters)
             l1_reg = sum(p.abs().sum() for p in model.parameters())
 
             # Add L1 regularization to the original loss
@@ -106,7 +103,6 @@ def train_and_validate(model, model_name, train_loader, validation_loader, optim
                 f'Val Loss: {avg_val_loss:.4f}, '
                 f'Train Acc: {train_accuracy:.4f}, '
                 f'Val Acc: {val_accuracy:.4f}')
-        
     
         # Compute confusion matrix
         classes = ["clap", "climb", "drink", "jump", "pour", "ride_bike", "ride_horse", 
@@ -119,7 +115,6 @@ def train_and_validate(model, model_name, train_loader, validation_loader, optim
 
     # Plot the learning rate
     plot_learning_rate(learning_rates, scheduler_type, model_name)
-
 
     # Save the model with the scheduler type
     torch.save(model.state_dict(), f'{model_name}_{scheduler_type}.pth')

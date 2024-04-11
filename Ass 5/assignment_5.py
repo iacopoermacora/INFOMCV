@@ -6,15 +6,15 @@ from train import initialize_model, train_and_validate, plot_metrics, plot_learn
 from torch.optim.lr_scheduler import CyclicLR, StepLR
 import settings
 import matplotlib.pyplot as plt
-from models import Stanford40_model, HMDB51_model, HMDB51_OF_model
-from datasets import CustomStandford40Dataset, VideoFrameDataset, OpticalFlowDataset
+from models import Stanford40_model, HMDB51_model, HMDB51_OF_model, HMDB51_OF_VGG_model, ActionRecognitionModel
+from datasets import CustomStandford40Dataset, VideoFrameDataset, OpticalFlowDataset, OpticalFlowDataset_PY
 from torch.utils.data import Dataset, DataLoader, random_split
 from torchvision.transforms import ToTensor
 import os
 from evaluate import test_model
 import torch
 
-'''# STANFORD40 - FRAMES
+# STANFORD40 - FRAMES
 if not os.path.exists(f'Stanford40_model_{settings.LR_SCHEDULER_TYPE}.pth'):
     # Create Stanford40 dataset
     train_files, train_labels, test_files, test_labels = create_stanford40_splits()
@@ -85,7 +85,7 @@ if not os.path.exists(f'plots/confusion_matrix_Stanford40_model_{settings.LR_SCH
         model.load_state_dict(torch.load(f'Stanford40_model_dynamic.pth'))
         test_accuracy, confusion_matrix = test_model(model, test_loader, device='cpu')
         print(f'Test accuracy: {test_accuracy:.2f}% for Stanford40_model_dynamic.pth')
-'''
+
 # HMDB51 - FRAMES
 if not os.path.exists(f'HMDB51_model_{settings.LR_SCHEDULER_TYPE}.pth'):
     keep_hmdb51 = ["clap", "climb", "drink", "jump", "pour", "ride_bike", "ride_horse", 
@@ -153,7 +153,7 @@ if not os.path.exists(f'plots/confusion_matrix_HMDB51_model_{settings.LR_SCHEDUL
  
 
 
-'''# HMDB51 - OPTICAL FLOW
+# HMDB51 - OPTICAL FLOW
 if not os.path.exists(f'HMDB51_OF_model_{settings.LR_SCHEDULER_TYPE}.pth'):
     # HMDB51 - Optical Flow
     keep_hmdb51 = ["clap", "climb", "drink", "jump", "pour", "ride_bike", "ride_horse", 
@@ -161,8 +161,8 @@ if not os.path.exists(f'HMDB51_OF_model_{settings.LR_SCHEDULER_TYPE}.pth'):
     train_files, train_labels, test_files, test_labels = create_hmdb51_splits(keep_hmdb51)
 
     # Create custom dataset
-    train_dataset = OpticalFlowDataset(train_files, train_labels, root_dir="video_OF_dataset", transform=ToTensor())
-    test_dataset = OpticalFlowDataset(test_files, test_labels, root_dir="video_OF_dataset", transform=ToTensor())
+    train_dataset = OpticalFlowDataset_PY(train_files, train_labels, root_dir="video_OF_py_dataset", transform=ToTensor())
+    test_dataset = OpticalFlowDataset_PY(test_files, test_labels, root_dir="video_OF_py_dataset", transform=ToTensor())
 
     # Split the training dataset into training and validation
     validation_split = 0.15
@@ -179,15 +179,15 @@ if not os.path.exists(f'HMDB51_OF_model_{settings.LR_SCHEDULER_TYPE}.pth'):
 
     # THIRD MODEL
     # Initialize model, loss function, and optimizer
-    model = HMDB51_OF_model()
-    model_name = "HMDB51_OF_model"
+    model = ActionRecognitionModel()
+    model_name = "ActionRecognitionModel"
     criteria = nn.CrossEntropyLoss()
 
     # set learning rate scheduler that decreases the learning rate by a factor of 0.5 every 5 epochs or cyclitic learning rate
     if (settings.LR_SCHEDULER_TYPE) == 'dynamic':
         optimizer = optim.Adam(model.parameters(), lr=0.0000001, weight_decay=0.0001)
         # Use StepLR for dynamic learning rate adjustments
-        scheduler = StepLR(optimizer, step_size=5, gamma=0.5)
+        scheduler = StepLR(optimizer, step_size=1, gamma=0.5)
     elif (settings.LR_SCHEDULER_TYPE) == 'cyclic':
         optimizer = optim.SGD(model.parameters(), lr=0.0000001, weight_decay=0.0001)
         # Use CyclicLR for cyclic learning rate adjustments
@@ -196,7 +196,7 @@ if not os.path.exists(f'HMDB51_OF_model_{settings.LR_SCHEDULER_TYPE}.pth'):
         raise ValueError("Invalid learning rate schedule type specified.")
 
     # Train the model
-    train_losses, val_losses, train_accuracies, val_accuracies = train_and_validate(model, model_name, train_loader, validation_loader, optimizer, scheduler, criteria, num_epochs=75)
+    train_losses, val_losses, train_accuracies, val_accuracies = train_and_validate(model, model_name, train_loader, validation_loader, optimizer, scheduler, criteria, num_epochs=10)
 
     # Plot the training and validation losses and accuracies
-    plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies, model_name, settings.LR_SCHEDULER_TYPE)'''
+    plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies, model_name, settings.LR_SCHEDULER_TYPE)

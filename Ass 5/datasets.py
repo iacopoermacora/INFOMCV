@@ -142,7 +142,6 @@ class OpticalFlowDataset(Dataset):
         label_tensor = torch.tensor(label_idx, dtype=torch.long)
 
         flow_stack = self.load_optical_flow_stack(idx)
-        flow_stack = self.rescale_optical_flow(flow_stack)
         flow_stack = torch.tensor(flow_stack).float()
 
         return flow_stack, label_tensor
@@ -157,20 +156,65 @@ class OpticalFlowDataset(Dataset):
         flow_folder_path = os.path.join(self.root_dir, self.labels[idx])
         image_files = [file for file in os.listdir(flow_folder_path) if file.startswith(os.path.splitext(self.file_paths[idx])[0]+"_")]
         
-        image_files = sorted(image_files, key=sort_by_number)
+        channels = [None, None]
+        # Separate the files if they end with u or v
+        channels[0] = [file for file in image_files if file.endswith('u.png')]
+        channels[1] = [file for file in image_files if file.endswith('v.png')]
 
-        for image in image_files:
-            flow_img_path = os.path.join(flow_folder_path, image)
-            flow_img = cv2.imread(flow_img_path, cv2.IMREAD_GRAYSCALE)
-            flow_stack.append(flow_img)
+        channels[0] = sorted(channels[0], key=sort_by_number)
+        channels[1] = sorted(channels[1], key=sort_by_number)
 
-        return np.stack(flow_stack)
-    
-    def rescale_optical_flow(self, flow_stack):
-        # Rescale between 0 and 1 using Min-Max Scaling
-        reshaped_stack = flow_stack.reshape(-1, 1)
-        scaled_stack = self.scaler.fit_transform(reshaped_stack).reshape(flow_stack.shape)
-        return scaled_stack
+        final_stack = [None, None]
+        for i, channel in enumerate(channels):
+            flow_stack = []
+            for image in channel:
+                flow_img_path = os.path.join(flow_folder_path, image)
+                flow_img = cv2.imread(flow_img_path, cv2.IMREAD_GRAYSCALE)
+                flow_stack.append(flow_img)
+            final_stack[i] = flow_stack
+
+        return np.array(final_stack)
+
+
+# Custom dataset class for HMDB51 dataset (optical flow)
+class OpticalFlowDataset_PY(Dataset):
+    def __init__(self, file_paths, labels, root_dir, transform=None):
+        self.file_paths = file_paths
+        self.labels = labels
+        self.label_map = {
+            "clap": 0,
+            "climb": 1,
+            "drink": 2,
+            "jump": 3,
+            "pour": 4,
+            "ride_bike": 5,
+            "ride_horse": 6,
+            "run": 7,
+            "shoot_bow": 8,
+            "smoke": 9,
+            "throw": 10,
+            "wave": 11
+        }
+        self.root_dir = root_dir
+        self.transform = transform
+        self.scaler = MinMaxScaler()
+
+    def __len__(self):
+        return len(self.file_paths)
+
+    def __getitem__(self, idx):
+        label = self.labels[idx]
+        label_idx = self.label_map[label]
+        label_tensor = torch.tensor(label_idx, dtype=torch.long)
+
+        # Retrieve the numpy array of the optical flow stack
+        flow_stack = np.load(os.path.join(self.root_dir, self.labels[idx], os.path.splitext(self.file_paths[idx])[0]+'_flow.npy'))
+        flow_stack = torch.tensor(flow_stack).float()
+
+        # Switch the dimensions of the flow stack to match the expected input shape
+        flow_stack = flow_stack.permute(3, 0, 1, 2,)
+
+        return flow_stack, label_tensor
 
 # TODO: Implement the custom dataset class for the two-stream dataset
 

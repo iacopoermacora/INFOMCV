@@ -11,3 +11,5 @@ video_OF_dataset/
 __pycache__/
 settings.py
 *.pth
+video_OF_py_dataset/
+data/
