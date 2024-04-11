@@ -35,7 +35,9 @@ def test_model(model, test_loader, device='cpu'):
     sns.heatmap(cm, annot=True, fmt="d")
     plt.xlabel('Predicted')
     plt.ylabel('Truth')
+    plt.savefig(f'plots/confusion_matrix_{model.__class__.__name__}.png')
     plt.show()
+
 
     return accuracy, cm
 

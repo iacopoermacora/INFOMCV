@@ -107,13 +107,13 @@ def train_and_validate(model, model_name, train_loader, validation_loader, optim
                 f'Train Acc: {train_accuracy:.4f}, '
                 f'Val Acc: {val_accuracy:.4f}')
         
-        # Save the model
-        torch.save(model.state_dict(), f'{model_name}_epoch_{epoch}_{scheduler_type}.pth')
     
         # Compute confusion matrix
         classes = ["clap", "climb", "drink", "jump", "pour", "ride_bike", "ride_horse", 
                 "run", "shoot_bow", "smoke", "throw", "wave"]
         scheduler_type = 'cyclic' if isinstance(scheduler, CyclicLR) else 'dynamic'
+        # Save the model
+        torch.save(model.state_dict(), f'{model_name}_epoch_{epoch}_{scheduler_type}.pth')
         cm = confusion_matrix(all_true, all_preds)
         plot_confusion_matrix(model_name, cm, classes, scheduler_type, title=f'Confusion Matrix {epoch}', cmap=plt.cm.Blues)
 
@@ -121,7 +121,7 @@ def train_and_validate(model, model_name, train_loader, validation_loader, optim
     plot_learning_rate(learning_rates, scheduler_type, model_name)
 
 
-    # Save the model
+    # Save the model with the scheduler type
     torch.save(model.state_dict(), f'{model_name}_{scheduler_type}.pth')
 
     # save txt file with the model's train and validation losses and accuracies for each epoch

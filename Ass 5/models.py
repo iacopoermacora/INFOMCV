@@ -37,7 +37,7 @@ def HMDB51_model(num_classes=12, dropout_prob=0.5):
     )
 
     # Load the pre-trained Stanford40 model state dictionary
-    state_dict = torch.load('Stanford40_model.pth')
+    state_dict = torch.load('Stanford40_model_dynamic.pth')
     model.load_state_dict(state_dict)
 
     freeze = True
