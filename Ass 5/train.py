@@ -32,38 +32,43 @@ def train_and_validate(model, model_name, train_loader, validation_loader, optim
         model.train()
         total_train_loss, total_train_correct, total_train_samples = 0, 0, 0
         
-        for inputs, labels in tqdm(train_loader):
-            # inputs, labels = inputs.to(device), labels.to(device)
-            # Save in a text file all the labels
+        for value in tqdm(train_loader):
             optimizer.zero_grad()
-            outputs = model(inputs)
+            if len(value) == 3:
+                photos, flows, labels = value
+                outputs = model(photos, flows)
+            else:
+                inputs, labels = value
+                outputs = model(inputs)
+            # Save in a text file all the labels
             loss = criteria(outputs, labels)
-
-            '''# Calculate L1 regularization (sum of absolute values of all trainable parameters)
-            l1_reg = sum(p.abs().sum() for p in model.parameters())
-
-            # Add L1 regularization to the original loss
-            total_loss = loss + l1_lambda * l1_reg '''           
+            with open(f'{model_name}_train.txt', 'a') as f:
+                    f.write(f'Labels\n')
+                    f.write(f'{labels}\n')
+            
             loss.backward()
             optimizer.step()
 
-            total_train_loss += loss.item() * inputs.size(0)
+            total_train_loss += loss.item() * labels.size(0)
             _, predicted = torch.max(outputs, 1)
-            predicted 
+            with open(f'{model_name}_train.txt', 'a') as f:
+                    f.write(f'Predicted\n')
+                    f.write(f'{predicted}\n')
+
             total_train_correct += (predicted == labels).sum().item()
             total_train_samples += labels.size(0)
 
-            # Update learning rate after each batch for CyclicLR
+            '''# Update learning rate after each batch for CyclicLR
             if isinstance(scheduler, CyclicLR):
                 learning_rates.append(optimizer.param_groups[0]['lr'])
-                scheduler.step()
-        with open(f'{model_name}_predict_order.txt', 'a') as f:
+                scheduler.step()'''
+        with open(f'{model_name}_train.txt', 'a') as f:
             f.write('\n\n')
         
-        # Update learning rate after each epoch for other schedulers
+        '''# Update learning rate after each epoch for other schedulers
         if not isinstance(scheduler, CyclicLR):
             learning_rates.append(optimizer.param_groups[0]['lr'])
-            scheduler.step()
+            scheduler.step()'''
         
         avg_train_loss = total_train_loss / total_train_samples
         train_accuracy = total_train_correct / total_train_samples
@@ -75,14 +80,22 @@ def train_and_validate(model, model_name, train_loader, validation_loader, optim
         total_val_loss, total_val_correct, total_val_samples = 0, 0, 0
         all_preds, all_true = [], []
         with torch.no_grad():
-            for inputs, labels in tqdm(validation_loader):
-                # inputs, labels = inputs.to(device), labels.to(device)
-                outputs = model(inputs)
+            for value in tqdm(validation_loader):
+                if len(value) == 3:
+                    photos, flows, labels = value
+                    outputs = model(photos, flows)
+                else:
+                    inputs, labels = value
+                    outputs = model(inputs)
                 val_loss = criteria(outputs, labels)
+                with open(f'{model_name}_val.txt', 'a') as f:
+                    f.write(f'Labels\n')
+                    f.write(f'{labels}\n')
                 
-                total_val_loss += val_loss.item() * inputs.size(0)
+                total_val_loss += val_loss.item() * labels.size(0)
                 _, predicted = torch.max(outputs, 1)
-                with open(f'{model_name}_predict_order.txt', 'a') as f:
+                with open(f'{model_name}_val.txt', 'a') as f:
+                    f.write(f'Predicted\n')
                     f.write(f'{predicted}\n')
                 total_val_correct += (predicted == labels).sum().item()
                 total_val_samples += labels.size(0)
@@ -90,7 +103,7 @@ def train_and_validate(model, model_name, train_loader, validation_loader, optim
                 # Collect all predictions and true labels
                 all_preds.extend(predicted.view(-1).cpu().numpy())
                 all_true.extend(labels.view(-1).cpu().numpy())
-        with open(f'{model_name}_predict_order.txt', 'a') as f:
+        with open(f'{model_name}_val.txt', 'a') as f:
             f.write('\n\n')
 
         avg_val_loss = total_val_loss / total_val_samples
@@ -112,6 +125,8 @@ def train_and_validate(model, model_name, train_loader, validation_loader, optim
         torch.save(model.state_dict(), f'{model_name}_epoch_{epoch}_{scheduler_type}.pth')
         cm = confusion_matrix(all_true, all_preds)
         plot_confusion_matrix(model_name, cm, classes, scheduler_type, title=f'Confusion Matrix {epoch}', cmap=plt.cm.Blues)
+        # Plot the training and validation losses and accuracies
+        plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies, model_name, 'Fixed LR')
 
     # Plot the learning rate
     plot_learning_rate(learning_rates, scheduler_type, model_name)
@@ -150,6 +165,7 @@ def plot_confusion_matrix(model_name, cm, classes, scheduler_type, title='Confus
     plt.xlabel('Predicted label')
     # save confusion matrix plot in the plots folder
     plt.savefig(f'plots/{model_name}_{scheduler_type}_{title}.png')
+    plt.close()
 
 def plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies, model_name, scheduler_type):
     epochs = range(1, len(train_losses) + 1)
@@ -174,6 +190,7 @@ def plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies, mod
     plt.tight_layout()
     # Save the plot inside the plots folder 
     plt.savefig(f'plots/{model_name}_{scheduler_type}_metrics.png')
+    plt.close()
 
 def plot_learning_rate(learning_rates, scheduler_type, model_name):
     plt.figure(figsize=(10, 4))
@@ -186,3 +203,4 @@ def plot_learning_rate(learning_rates, scheduler_type, model_name):
     plt.tight_layout()
     # Save the plot inside the plots folder with the name of the model and the scheduler type
     plt.savefig(f'plots/{model_name}_{scheduler_type}_learning_rate.png')
+    plt.close()

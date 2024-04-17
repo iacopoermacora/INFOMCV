@@ -13,3 +13,6 @@ settings.py
 *.pth
 video_OF_py_dataset/
 data/
+video_OF_dataset/
+video_OF_py_dataset_112/
+video_OF_py_dataset_224/

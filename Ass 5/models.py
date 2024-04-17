@@ -7,7 +7,7 @@ import numpy as np
 
 # 1. Stanford 40 – Frames: Create a CNN and train it on the images in Stanford 40. Naturally, you will have 12 output classes.
 
-def Stanford40_model(num_classes=12, dropout_prob=0.5):
+def Stanford40_model(num_classes=12, dropout_prob=0.5): # TODO: Change this to a class
     # Load the pre-trained ResNet-50 model
     model = models.resnet50(weights='ResNet50_Weights.DEFAULT')
     
@@ -25,7 +25,7 @@ def Stanford40_model(num_classes=12, dropout_prob=0.5):
 # 2. HMDB51 – Frames (transfer learning): Use your pretrained CNN (same architecture/weights) and fine-tune it on the middle 
 #    frame of videos of the HMDB51 dataset. You can use a different learning rate than for the Stanford 40 network training.
 
-def HMDB51_model(num_classes=12, dropout_prob=0.5):
+def HMDB51_model(num_classes=12, dropout_prob=0.5): # TODO: Change this to a class
     # Load the pre-trained stanford40 model from the standford40.pth file
     model = models.resnet50(weights='ResNet50_Weights.DEFAULT')  # Change to the correct model architecture
 
@@ -49,93 +49,12 @@ def HMDB51_model(num_classes=12, dropout_prob=0.5):
         else:
             freeze = False
     
-    # Check which layers are frozen
-    for name, param in model.named_parameters():
-        print(name, param.requires_grad)
-    
     return model
 
 # 3. HMDB51 – Optical flow: Create a new CNN and train it on the optical flow of videos in HMBD51. You can use the middle frame
 #    (max 5 points) or stack a fixed number (e.g., 16) of optical flow frames together (max 10 points).
 
-class HMDB51_OF_model_old(nn.Module):
-    def __init__(self):
-        super(HMDB51_OF_model, self).__init__()
-        self.conv1 = nn.Sequential(
-            nn.Conv2d(in_channels=32, out_channels=96, kernel_size=7, stride=2), # TODO: Change in_channels accordingly
-            nn.BatchNorm2d(96),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=3, stride=2)
-        )
-        self.conv2 = nn.Sequential(
-            nn.Conv2d(in_channels=96, out_channels=256, kernel_size=5, stride=2, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=3, stride=2)
-        )
-        self.conv3 = nn.Conv2d(in_channels=256, out_channels=512, kernel_size=3, stride=1, padding=1)
-        self.conv4 = nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, stride=1, padding=1)
-        self.conv5 = nn.Sequential(
-            nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=3, stride=2)
-        )
-        self.full6 = nn.Sequential(
-            nn.Linear(512*5*5, 4096),
-            nn.ReLU(),
-            nn.Dropout(p=0.5)
-        )
-        self.full7 = nn.Sequential(
-            nn.Linear(4096, 2048),
-            nn.ReLU(),
-            nn.Dropout(p=0.5)
-        )
-        self.linear = nn.Linear(2048, 12)
-        # self.softmax = nn.Softmax(dim=1)
-        
-    def forward(self, x):
-        x = self.conv1(x)
-        x = self.conv2(x)
-        x = self.conv3(x)
-        x = self.conv4(x)
-        x = self.conv5(x)
-        x = x.view(x.size(0), -1)  # Flatten the output of conv5 for FC layers
-        x = self.full6(x)
-        x = self.full7(x)
-        x = self.linear(x)
-        # x = self.softmax(x)
-        return x
-
-def HMDB51_OF_model(num_classes=12, dropout_prob=0.5):
-    # Load the pre-trained ResNet-50 model
-    model = models.resnet50(weights='ResNet50_Weights.DEFAULT')
-    
-    # Change the first layer to accept 32 channels instead of 3
-    model.conv1 = nn.Conv2d(32, 64, kernel_size=7, stride=2, padding=3, bias=False)
-    # Modify the output layer to have num_classes classes
-    num_ftrs = model.fc.in_features
-    # Create a new Sequential model for the classifier
-    # It includes a Dropout layer followed by the final Linear layer
-    model.fc = nn.Sequential(
-        nn.Dropout(dropout_prob),  # Add dropout with a probability of dropout_prob
-        nn.Linear(num_ftrs, num_classes)
-    )
-    
-    return model
-
-# 4. HMDB51 – Two-stream: Finally, create a two-stream CNN with one stream for the frames and one stream for the optical flow. 
-#    Use your pre-trained CNNs to initialize the weights of the two branches. Think about how to fuse the two streams and motivate 
-#    this in your report. Look at the Q&A at the end of this assignment. Fine-tune the network.
-
-
-
-
-
-
-
-
-#####################################################################################################################################
-
-class Conv2Plus1D(nn.Module):
+class Conv2Plus1D(nn.Module): # TODO: CHange names and reorder
     def __init__(self, in_channels, filters, kernel_size, padding):
         super(Conv2Plus1D, self).__init__()
         self.spatial_conv = nn.Conv3d(in_channels=in_channels,
@@ -180,21 +99,10 @@ class ResidualMain(nn.Module):
 
         return x + res
 
-'''class Project(nn.Module):
-    def __init__(self, input, output):
-        super(Project, self).__init__()
-        in_features = int(np.prod(input[1:]))
-        out_features = int(np.prod(output[1:]))
-        self.linear = nn.Linear(in_features, out_features)
-    
-    def forward(self, x):
-        x = self.linear(x)
-        return x'''
-
 class Conv2Plus1Model(nn.Module):
     def __init__(self):
         super(Conv2Plus1Model, self).__init__()
-        self.initial_conv = Conv2Plus1D(in_channels=2, filters=8, kernel_size=(3, 3, 3), padding="same")
+        self.initial_conv = Conv2Plus1D(in_channels=2, filters=8, kernel_size=(3, 3, 3), padding='same')
         self.relu = nn.ReLU()
         self.res_blocks = nn.ModuleList([
             ResidualMain(8, 16, (3, 3, 3)),
@@ -206,14 +114,9 @@ class Conv2Plus1Model(nn.Module):
         self.global_avg_pool = nn.AdaptiveAvgPool3d((1, 1, 1))
         self.flatten = nn.Flatten()
         self.dense1 = nn.Linear(128, 128)
+        self.relu = nn.ReLU()
         self.dropout = nn.Dropout(0.35)
         self.final_dense = nn.Linear(128, 12)
-    
-    def _make_layer(self, filters, kernel_size):
-        layer = nn.Sequential(
-            ResidualMain(filters, kernel_size)(),
-        )
-        return layer
     
     def forward(self, x):
         x = self.initial_conv(x)
@@ -225,11 +128,116 @@ class Conv2Plus1Model(nn.Module):
                 x = self.max_pool(x)
         x = self.global_avg_pool(x)
         x = self.flatten(x)
-        x = F.relu(self.dense1(x))
+        x = self.dense1(x)
+        x = self.relu(x)
         x = self.dropout(x)
         x = self.final_dense(x)
         return x
-    
-'''model = Conv2Plus1Model()
-summary(model, (2, 16, 72, 72))  # Change the input shape accordingly'''
 
+# 4. HMDB51 – Two-stream: Finally, create a two-stream CNN with one stream for the frames and one stream for the optical flow. 
+#    Use your pre-trained CNNs to initialize the weights of the two branches. Think about how to fuse the two streams and motivate 
+#    this in your report. Look at the Q&A at the end of this assignment. Fine-tune the network.
+
+class HMDB51_Fusion_Model(nn.Module):
+    def __init__(self):
+        super(HMDB51_Fusion_Model, self).__init__()
+        self.frame_model = HMDB51_Frame_Fusion()
+        
+        self.of_model = HMDB51_OF_Fusion()
+
+        # 1X1 convolutions
+        self.conv1x1 = nn.Conv3d(in_channels=128, out_channels=128, kernel_size=(2, 1, 1))
+        self.convFusion = nn.Conv2d(in_channels=2048+128, out_channels=128, kernel_size=(1, 1))
+        self.fc1 = nn.Linear(128*7*7, 128)
+        self.fc2 = nn.Linear(128, 12)
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(0.35)
+
+    def forward(self, frame_x, of_x):
+        frame_x = self.frame_model(frame_x)
+        of_x = self.of_model(of_x)
+        of_x = self.conv1x1(of_x)
+        # Squeeze the 1st dimension
+        of_x = torch.squeeze(of_x, dim=2)
+        x = torch.cat((frame_x, of_x), dim=1)
+        # Convolution
+        x = self.convFusion(x)
+        # Flatten the tensor
+        x = x.view(x.size(0), -1)
+        x = self.fc1(x)
+        x = self.relu(x)
+        x = self.dropout(x)
+        x = self.fc2(x)
+        return x
+
+class HMDB51_Frame_Fusion(nn.Module):
+    def __init__(self, num_classes=12, dropout_prob=0.5):
+        super(HMDB51_Frame_Fusion, self).__init__()
+
+        self.resnet50 = models.resnet50(weights='ResNet50_Weights.DEFAULT')  # Change to the correct model architecture
+
+        # Modify the output layer to have num_classes classes
+        num_ftrs = self.resnet50.fc.in_features
+        # Create a new Sequential model for the classifier
+        # It includes a Dropout layer followed by the final Linear layer
+        self.resnet50.fc = nn.Sequential(
+            nn.Dropout(dropout_prob),  # Add dropout with a probability of dropout_prob
+            nn.Linear(num_ftrs, num_classes)
+        )
+
+        # Load the pre-trained HMDB51 model state dictionary
+        state_dict = torch.load('HMDB51_model_dynamic.pth')
+        self.resnet50.load_state_dict(state_dict)
+
+        # Freeze layers
+        for name, param in self.named_parameters():
+            param.requires_grad = False
+
+    def forward(self, x):
+        x = self.resnet50.conv1(x)
+        x = self.resnet50.bn1(x)
+        x = self.resnet50.relu(x)
+        x = self.resnet50.maxpool(x)
+
+        x = self.resnet50.layer1(x)
+        x = self.resnet50.layer2(x)
+        x = self.resnet50.layer3(x)
+        x = self.resnet50.layer4(x)
+
+        return x
+    
+class HMDB51_OF_Fusion(nn.Module):
+    def __init__(self):
+        super(HMDB51_OF_Fusion, self).__init__()
+        self.HMDB51_OF = Conv2Plus1Model()
+        state_dict = torch.load('Conv2Plus1Model_dynamic.pth')
+        self.HMDB51_OF.load_state_dict(state_dict)
+
+        # Freeze layers
+        self.freeze_all_layers(self.HMDB51_OF)
+
+        # Convolution layer to get output from (128, 2, 9, 9) to (128, 2, 7, 7)
+        self.final_conv = nn.Conv3d(in_channels=128, out_channels=128, kernel_size=(1, 3, 3), padding='valid')
+
+    
+    def freeze_model(self, model):
+        for param in model.parameters():
+            param.requires_grad = False
+
+    def freeze_all_layers(self, model):
+        self.freeze_model(model)
+
+        # Recursively freeze parameters in submodules
+        for module in model.modules():
+            if isinstance(module, nn.Module):
+                self.freeze_model(module)
+
+    def forward(self, x):
+        x = self.HMDB51_OF.initial_conv(x)
+        x = self.HMDB51_OF.relu(x)
+        for block in self.HMDB51_OF.res_blocks:
+            x = block(x)
+            if block != self.HMDB51_OF.res_blocks[-1]:
+                x = self.HMDB51_OF.max_pool(x)
+        x = self.final_conv(x)
+        return x

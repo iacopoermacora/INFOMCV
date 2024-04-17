@@ -102,7 +102,6 @@ def show_image(image_no, train_files, train_labels):
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
-# Function to check image sizes
 def check_image_sizes(file_paths):
     sizes = set()
     for file_path in file_paths:
@@ -110,7 +109,6 @@ def check_image_sizes(file_paths):
         sizes.add(img.shape[:2])  # Considering only height and width
     return sizes
 
-# Function to check image sizes and find the smallest image
 def find_smallest_image(file_paths):
     smallest_height = float('inf')
     smallest_width = float('inf')
@@ -176,7 +174,6 @@ def plot_image_dimensions_distribution(train_file_paths, test_file_paths):
 
     plt.savefig("plots/dataset_distributions/stanford40_frame_size_distribution.png") 
 
-# Function to resize images and save them to a new directory
 def resize_and_save_images(input_folder, output_folder, file_list, target_size=(224, 224)):
     # Create the output folder if it doesn't exist
     if not os.path.exists(output_folder):
@@ -214,7 +211,6 @@ def augment_image_randomly(image_path):
     image_aug = augmentation.augment_image(image_np)
     
     return Image.fromarray(image_aug)
-
 
 def balance_dataset(train_files, train_labels, dataset_path):
     # Count occurrences of each class
@@ -281,7 +277,6 @@ def balance_dataset(train_files, train_labels, dataset_path):
                       
     return train_files_augmented, train_labels_augmented
 
-
 train_files, train_labels, test_files, test_labels = create_stanford40_splits()
 
 # Perform data and distribution analysis
@@ -317,13 +312,13 @@ input_folder = "Stanford40/JPEGImages"
 output_folder_train = "photo_dataset/train"
 output_folder_test = "photo_dataset/test"
 
-# Resize and save train images
+# Resize and save train images TRAIN
 resize_and_save_images(input_folder, output_folder_train, train_files)
 
-# Resize and save test images
+# Resize and save test images TEST
 resize_and_save_images(input_folder, output_folder_test, test_files)
 
-# Balance the dataset TODO: is there a check that do not augment if it was already augmented?
+# Balance the dataset
 train_files_augmented, train_labels_augmented = balance_dataset(train_files, train_labels, "photo_dataset/train")
 
 if settings.DATA_ANALYSIS:
