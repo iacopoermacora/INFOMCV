@@ -1,26 +1,11 @@
 import torch
 from torch.optim.lr_scheduler import CyclicLR, StepLR
 import matplotlib.pyplot as plt
-import numpy as np
-import itertools
 from sklearn.metrics import confusion_matrix
 from tqdm import tqdm
-
-
-def initialize_model(model_class):
-    '''
-    Initialize the model
-
-    param: model_class: class: Model class
-
-    return: model: Model instance
-    '''
-    model = model_class()
-    return model
+from evaluate import plot_confusion_matrix, plot_metrics, plot_learning_rate
 
 def train_and_validate(model, model_name, train_loader, validation_loader, optimizer, scheduler, criteria, num_epochs):
-    # device = torch.device("cpu")
-    # model.to("cpu")
 
     print(f"Training {model_name} model")
     
@@ -42,33 +27,25 @@ def train_and_validate(model, model_name, train_loader, validation_loader, optim
                 outputs = model(inputs)
             # Save in a text file all the labels
             loss = criteria(outputs, labels)
-            with open(f'{model_name}_train.txt', 'a') as f:
-                    f.write(f'Labels\n')
-                    f.write(f'{labels}\n')
             
             loss.backward()
             optimizer.step()
 
             total_train_loss += loss.item() * labels.size(0)
             _, predicted = torch.max(outputs, 1)
-            with open(f'{model_name}_train.txt', 'a') as f:
-                    f.write(f'Predicted\n')
-                    f.write(f'{predicted}\n')
 
             total_train_correct += (predicted == labels).sum().item()
             total_train_samples += labels.size(0)
 
-            '''# Update learning rate after each batch for CyclicLR
+            # Update learning rate after each batch for CyclicLR
             if isinstance(scheduler, CyclicLR):
                 learning_rates.append(optimizer.param_groups[0]['lr'])
-                scheduler.step()'''
-        with open(f'{model_name}_train.txt', 'a') as f:
-            f.write('\n\n')
+                scheduler.step()
         
-        '''# Update learning rate after each epoch for other schedulers
-        if not isinstance(scheduler, CyclicLR):
+        # Update learning rate after each epoch for Dynamic LR
+        if isinstance(scheduler, StepLR):
             learning_rates.append(optimizer.param_groups[0]['lr'])
-            scheduler.step()'''
+            scheduler.step()
         
         avg_train_loss = total_train_loss / total_train_samples
         train_accuracy = total_train_correct / total_train_samples
@@ -88,23 +65,15 @@ def train_and_validate(model, model_name, train_loader, validation_loader, optim
                     inputs, labels = value
                     outputs = model(inputs)
                 val_loss = criteria(outputs, labels)
-                with open(f'{model_name}_val.txt', 'a') as f:
-                    f.write(f'Labels\n')
-                    f.write(f'{labels}\n')
                 
                 total_val_loss += val_loss.item() * labels.size(0)
                 _, predicted = torch.max(outputs, 1)
-                with open(f'{model_name}_val.txt', 'a') as f:
-                    f.write(f'Predicted\n')
-                    f.write(f'{predicted}\n')
                 total_val_correct += (predicted == labels).sum().item()
                 total_val_samples += labels.size(0)
 
                 # Collect all predictions and true labels
                 all_preds.extend(predicted.view(-1).cpu().numpy())
                 all_true.extend(labels.view(-1).cpu().numpy())
-        with open(f'{model_name}_val.txt', 'a') as f:
-            f.write('\n\n')
 
         avg_val_loss = total_val_loss / total_val_samples
         val_accuracy = total_val_correct / total_val_samples
@@ -120,11 +89,16 @@ def train_and_validate(model, model_name, train_loader, validation_loader, optim
         # Compute confusion matrix
         classes = ["clap", "climb", "drink", "jump", "pour", "ride_bike", "ride_horse", 
                 "run", "shoot_bow", "smoke", "throw", "wave"]
-        scheduler_type = 'cyclic' if isinstance(scheduler, CyclicLR) else 'dynamic'
+        if isinstance(scheduler, CyclicLR):
+            scheduler_type = 'cyclic'
+        elif isinstance(scheduler, StepLR):
+            scheduler_type = 'dynamic'
+        else:
+            scheduler_type = 'fixed'
         # Save the model
         torch.save(model.state_dict(), f'{model_name}_epoch_{epoch}_{scheduler_type}.pth')
         cm = confusion_matrix(all_true, all_preds)
-        plot_confusion_matrix(model_name, cm, classes, scheduler_type, title=f'Confusion Matrix {epoch}', cmap=plt.cm.Blues)
+        plot_confusion_matrix(model_name, cm, classes, scheduler_type, title=f'{epoch}', cmap=plt.cm.Blues)
         # Plot the training and validation losses and accuracies
         plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies, model_name, 'Fixed LR')
 
@@ -135,72 +109,9 @@ def train_and_validate(model, model_name, train_loader, validation_loader, optim
     torch.save(model.state_dict(), f'{model_name}_{scheduler_type}.pth')
 
     # save txt file with the model's train and validation losses and accuracies for each epoch
-    with open(f'plots/{model_name}_losses_accuracies.txt', 'a') as f:
+    with open(f'plots/{model_name}/{model_name}_losses_accuracies.txt', 'a') as f:
         for epoch in range(num_epochs):
             f.write(f'Epoch [{epoch+1}/{num_epochs}], Train Loss: {train_losses[epoch]:.4f}, Val Loss: {val_losses[epoch]:.4f}, Train Acc: {train_accuracies[epoch]:.4f}, Val Acc: {val_accuracies[epoch]:.4f}\n')
 
     return train_losses, val_losses, train_accuracies, val_accuracies
 
-def plot_confusion_matrix(model_name, cm, classes, scheduler_type, title='Confusion matrix', cmap=plt.cm.Blues):
-    """
-    This function prints and plots the confusion matrix.
-    """
-    plt.figure(figsize=(10, 10))
-    plt.imshow(cm, interpolation='nearest', cmap=cmap)
-    plt.title(title)
-    plt.colorbar()
-    tick_marks = np.arange(len(classes))
-    plt.xticks(tick_marks, classes, rotation=45)
-    plt.yticks(tick_marks, classes)
-
-    fmt = 'd'
-    thresh = cm.max() / 2.
-    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
-        plt.text(j, i, format(cm[i, j], fmt),
-                 horizontalalignment="center",
-                 color="white" if cm[i, j] > thresh else "black")
-
-    plt.tight_layout()
-    plt.ylabel('True label')
-    plt.xlabel('Predicted label')
-    # save confusion matrix plot in the plots folder
-    plt.savefig(f'plots/{model_name}_{scheduler_type}_{title}.png')
-    plt.close()
-
-def plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies, model_name, scheduler_type):
-    epochs = range(1, len(train_losses) + 1)
-    
-    plt.figure(figsize=(12, 5))
-    plt.subplot(1, 2, 1)
-    plt.plot(epochs, train_losses, 'o-', label='Training Loss')
-    plt.plot(epochs, val_losses, 'o-', label='Validation Loss')
-    plt.title('Training and Validation Loss')
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss')
-    plt.legend()
-    
-    plt.subplot(1, 2, 2)
-    plt.plot(epochs, train_accuracies, 'o-', label='Training Accuracy')
-    plt.plot(epochs, val_accuracies, 'o-', label='Validation Accuracy')
-    plt.title('Training and Validation Accuracy')
-    plt.xlabel('Epoch')
-    plt.ylabel('Accuracy')
-    plt.legend()
-    
-    plt.tight_layout()
-    # Save the plot inside the plots folder 
-    plt.savefig(f'plots/{model_name}_{scheduler_type}_metrics.png')
-    plt.close()
-
-def plot_learning_rate(learning_rates, scheduler_type, model_name):
-    plt.figure(figsize=(10, 4))
-    plt.plot(learning_rates, label='Learning Rate')
-    plt.xlabel('Batch' if scheduler_type == 'cyclic' else 'Epoch')
-    plt.ylabel('Learning Rate')
-    plt.title(f'Learning Rate Evolution ({scheduler_type} scheduler)')
-    plt.legend()
-    plt.grid(True)
-    plt.tight_layout()
-    # Save the plot inside the plots folder with the name of the model and the scheduler type
-    plt.savefig(f'plots/{model_name}_{scheduler_type}_learning_rate.png')
-    plt.close()

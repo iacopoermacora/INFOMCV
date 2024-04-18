@@ -11,8 +11,10 @@ video_OF_dataset/
 __pycache__/
 settings.py
 *.pth
-video_OF_py_dataset/
+video_OF_dataset/
 data/
 video_OF_dataset/
 video_OF_py_dataset_112/
 video_OF_py_dataset_224/
+OLD DATASETS/
+*.txt

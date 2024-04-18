@@ -4,10 +4,11 @@ import torch.nn as nn
 import torchvision.models as models
 import torch.nn.functional as F
 import numpy as np
+import settings
 
 # 1. Stanford 40 – Frames: Create a CNN and train it on the images in Stanford 40. Naturally, you will have 12 output classes.
 
-def Stanford40_model(num_classes=12, dropout_prob=0.5): # TODO: Change this to a class
+'''def Stanford40_model(num_classes=12, dropout_prob=0.5): # TODO: Change this to a class
     # Load the pre-trained ResNet-50 model
     model = models.resnet50(weights='ResNet50_Weights.DEFAULT')
     
@@ -20,12 +21,26 @@ def Stanford40_model(num_classes=12, dropout_prob=0.5): # TODO: Change this to a
         nn.Linear(num_ftrs, num_classes)
     )
     
-    return model
+    return model'''
+
+class Stanford40_model(nn.Module):
+    def __init__(self, num_classes=12, dropout_prob=0.5):
+        super(Stanford40_model, self).__init__()
+        self.resnet50 = models.resnet50(weights='ResNet50_Weights.DEFAULT')
+        num_ftrs = self.resnet50.fc.in_features
+        self.resnet50.fc = nn.Sequential(
+            nn.Dropout(dropout_prob),
+            nn.Linear(num_ftrs, num_classes)
+        )
+    
+    def forward(self, x):
+        x = self.resnet50(x)
+        return x
 
 # 2. HMDB51 – Frames (transfer learning): Use your pretrained CNN (same architecture/weights) and fine-tune it on the middle 
 #    frame of videos of the HMDB51 dataset. You can use a different learning rate than for the Stanford 40 network training.
 
-def HMDB51_model(num_classes=12, dropout_prob=0.5): # TODO: Change this to a class
+'''def HMDB51_Frame_Model(num_classes=12, dropout_prob=0.5): # TODO: Change this to a class
     # Load the pre-trained stanford40 model from the standford40.pth file
     model = models.resnet50(weights='ResNet50_Weights.DEFAULT')  # Change to the correct model architecture
 
@@ -49,7 +64,32 @@ def HMDB51_model(num_classes=12, dropout_prob=0.5): # TODO: Change this to a cla
         else:
             freeze = False
     
-    return model
+    return model'''
+
+class HMDB51_Frame_Model(nn.Module):
+    def __init__(self, num_classes=12, dropout_prob=0.5):
+        super(HMDB51_Frame_Model, self).__init__()
+        self.resnet50 = models.resnet50(weights='ResNet50_Weights.DEFAULT')
+        num_ftrs = self.resnet50.fc.in_features
+        self.resnet50.fc = nn.Sequential(
+            nn.Dropout(dropout_prob),
+            nn.Linear(num_ftrs, num_classes)
+        )
+
+        # Load the pre-trained Stanford40 model state dictionary
+        state_dict = torch.load(f'Stanford40_model_{settings.LR_SCHEDULER_TYPE["Stanford40"]}.pth')
+        self.resnet50.load_state_dict(state_dict)
+
+        freeze = True
+        for name, param in self.resnet50.named_parameters():
+            if freeze and 'layer4' not in name:  # Change 'bottleneck.162' accordingly
+                param.requires_grad = False
+            else:
+                freeze = False
+    
+    def forward(self, x):
+        x = self.resnet50(x)
+        return x
 
 # 3. HMDB51 – Optical flow: Create a new CNN and train it on the optical flow of videos in HMBD51. You can use the middle frame
 #    (max 5 points) or stack a fixed number (e.g., 16) of optical flow frames together (max 10 points).
@@ -71,9 +111,9 @@ class Conv2Plus1D(nn.Module): # TODO: CHange names and reorder
         x = self.temporal_conv(x)
         return x
 
-class ResidualMain(nn.Module):
+class ResidualBlock(nn.Module):
     def __init__(self, in_channels, filters, kernel_size):
-        super(ResidualMain, self).__init__()
+        super(ResidualBlock, self).__init__()
         self.seq = nn.Sequential(
             Conv2Plus1D(in_channels=in_channels,
                         filters=filters,
@@ -99,16 +139,16 @@ class ResidualMain(nn.Module):
 
         return x + res
 
-class Conv2Plus1Model(nn.Module):
+class HMDB51_OF_Model(nn.Module):
     def __init__(self):
-        super(Conv2Plus1Model, self).__init__()
+        super(HMDB51_OF_Model, self).__init__()
         self.initial_conv = Conv2Plus1D(in_channels=2, filters=8, kernel_size=(3, 3, 3), padding='same')
         self.relu = nn.ReLU()
         self.res_blocks = nn.ModuleList([
-            ResidualMain(8, 16, (3, 3, 3)),
-            ResidualMain(16, 32, (3, 3, 3)),
-            ResidualMain(32, 64, (3, 3, 3)),
-            ResidualMain(64, 128, (3, 3, 3))
+            ResidualBlock(8, 16, (3, 3, 3)),
+            ResidualBlock(16, 32, (3, 3, 3)),
+            ResidualBlock(32, 64, (3, 3, 3)),
+            ResidualBlock(64, 128, (3, 3, 3))
         ])
         self.max_pool = nn.MaxPool3d(kernel_size=2)
         self.global_avg_pool = nn.AdaptiveAvgPool3d((1, 1, 1))
@@ -186,7 +226,7 @@ class HMDB51_Frame_Fusion(nn.Module):
         )
 
         # Load the pre-trained HMDB51 model state dictionary
-        state_dict = torch.load('HMDB51_model_dynamic.pth')
+        state_dict = torch.load(f'HMDB51_Frame_Model_{settings.LR_SCHEDULER_TYPE["HMDB51_Frames"]}.pth')
         self.resnet50.load_state_dict(state_dict)
 
         # Freeze layers
@@ -209,8 +249,8 @@ class HMDB51_Frame_Fusion(nn.Module):
 class HMDB51_OF_Fusion(nn.Module):
     def __init__(self):
         super(HMDB51_OF_Fusion, self).__init__()
-        self.HMDB51_OF = Conv2Plus1Model()
-        state_dict = torch.load('Conv2Plus1Model_dynamic.pth')
+        self.HMDB51_OF = HMDB51_OF_Model()
+        state_dict = torch.load(f'HMDB51_OF_Model_{settings.LR_SCHEDULER_TYPE["HMDB51_OF"]}.pth')
         self.HMDB51_OF.load_state_dict(state_dict)
 
         # Freeze layers

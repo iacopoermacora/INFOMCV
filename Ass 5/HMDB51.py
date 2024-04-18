@@ -291,17 +291,17 @@ if settings.DATA_ANALYSIS:
     check_video_length(train_files, train_labels, test_files, test_labels, keep_hmdb51)
     check_frame_size(train_files, train_labels, test_files, test_labels, keep_hmdb51)
 
-if not os.path.exists("video_OF_py_dataset"):
+if not os.path.exists("video_OF_dataset"):
     # Create optical flow images for training set
     for i, (video_file, video_label) in tqdm(enumerate(zip(train_files, train_labels))):
         video_path = os.path.join("video_data", video_label, video_file)
-        output_folder = os.path.join("video_OF_py_dataset", video_label)
+        output_folder = os.path.join("video_OF_dataset", video_label)
         extract_optical_flow_and_save(video_path, output_folder)
 
     # Create optical flow images for test set
     for i, (video_file, video_label) in tqdm(enumerate(zip(test_files, test_labels))):
         video_path = os.path.join("video_data", video_label, video_file)
-        output_folder = os.path.join("video_OF_py_dataset", video_label)
+        output_folder = os.path.join("video_OF_dataset", video_label)
         extract_optical_flow_and_save(video_path, output_folder)
 
 # Extract frames
