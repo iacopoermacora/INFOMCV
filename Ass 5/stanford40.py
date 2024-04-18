@@ -12,6 +12,11 @@ from PIL import Image
 import settings
 
 def create_stanford40_splits():
+    '''
+    Create train and test splits for the Stanford40 dataset.
+
+    return: train_files, train_labels, test_files, test_labels
+    '''
     # STANFORD 40 DATASET
     keep_stanford40 = ["applauding", "climbing", "drinking", "jumping", "pouring_liquid", "riding_a_bike", "riding_a_horse", 
             "running", "shooting_an_arrow", "smoking", "throwing_frisby", "waving_hands"]
@@ -43,6 +48,16 @@ def create_stanford40_splits():
     return train_files, train_labels, test_files, test_labels
 
 def check_distribution(train_files, train_labels, test_files, test_labels):
+    '''
+    Check the distribution of the classes in the train and test sets.
+
+    train_files: list of file names in the training set
+    train_labels: list of labels corresponding to the training files
+    test_files: list of file names in the test set
+    test_labels: list of labels corresponding to the test files
+
+    return: train_distribution, test_distribution
+    '''
     # Check if the lenght of the train and test files are the same as the labels
     assert len(train_files) == len(train_labels), "Train files and labels are not the same length"
     assert len(test_files) == len(test_labels), "Test files and labels are not the same length"
@@ -59,6 +74,15 @@ def check_distribution(train_files, train_labels, test_files, test_labels):
     return train_distribution, test_distribution
 
 def plot_distribution(train_distribution, test_distribution, name):
+    '''
+    Plot the distribution of the classes in the train and test sets.
+
+    train_distribution: dictionary containing the count of each class in the training set
+    test_distribution: dictionary containing the count of each class in the test set
+    name: name of the plot
+
+    return: None
+    '''
     if os.path.exists(f"plots/dataset_distributions/{name}.png"):
         print(f"Dataset distribution plot {name} already exists. Skipping...")
         return
@@ -95,6 +119,15 @@ def plot_distribution(train_distribution, test_distribution, name):
     plt.savefig(f"plots/dataset_distributions/{name}.png")
 
 def show_image(image_no, train_files, train_labels):
+    '''
+    Show an image from the training set.
+
+    image_no: index of the image to show
+    train_files: list of file names in the training set
+    train_labels: list of labels corresponding to the training files
+
+    return: None
+    '''
     # Change image_no to a number between [0, 1200] and you can see a different training image
     img = cv2.imread(f'Stanford40/JPEGImages/{train_files[image_no]}')
     print(f'An image with the label - {train_labels[image_no]}')
@@ -103,6 +136,13 @@ def show_image(image_no, train_files, train_labels):
     cv2.destroyAllWindows()
 
 def check_image_sizes(file_paths):
+    '''
+    Check the sizes of the images in the dataset.
+
+    file_paths: list of file paths for the images
+
+    return: sizes
+    '''
     sizes = set()
     for file_path in file_paths:
         img = cv2.imread(file_path)
@@ -110,9 +150,18 @@ def check_image_sizes(file_paths):
     return sizes
 
 def find_smallest_image(file_paths):
+    '''
+    Find the smallest image in the dataset.
+
+    file_paths: list of file paths for the images
+
+    return: smallest_image_path, smallest_height, smallest_width
+    '''
+    # Initialize variables to store the smallest image
     smallest_height = float('inf')
     smallest_width = float('inf')
     smallest_image_path = None
+    # Loop through each image and find the smallest one
     for file_path in file_paths:
         img = cv2.imread(file_path)
         if img is not None:
@@ -128,6 +177,13 @@ def find_smallest_image(file_paths):
     return smallest_image_path, smallest_height, smallest_width
 
 def get_image_dimensions(file_paths):
+        '''
+        Get the dimensions of the images in the dataset.
+
+        file_paths: list of file paths for the images
+
+        return: dimensions
+        '''
         dimensions = []
         for file_path in file_paths:
             img = cv2.imread(file_path)
@@ -137,6 +193,14 @@ def get_image_dimensions(file_paths):
         return dimensions
 
 def plot_image_dimensions_distribution(train_file_paths, test_file_paths):
+    '''
+    Plot the distribution of the image dimensions in the dataset.
+
+    train_file_paths: list of file paths for the training images
+    test_file_paths: list of file paths for the test images
+
+    return: None
+    '''
     if os.path.exists("plots/dataset_distributions/stanford40_frame_size_distribution.png"):
         print("Image size distribution plot already exists. Skipping...")
         return
@@ -175,6 +239,16 @@ def plot_image_dimensions_distribution(train_file_paths, test_file_paths):
     plt.savefig("plots/dataset_distributions/stanford40_frame_size_distribution.png") 
 
 def resize_and_save_images(input_folder, output_folder, file_list, target_size=(224, 224)):
+    '''
+    Resize the images in the input folder and save them to the output folder.
+
+    input_folder: path to the folder containing the images
+    output_folder: path to the folder where the resized images will be saved
+    file_list: list of file names to resize
+    target_size: size to resize the images to
+
+    return: None
+    '''
     # Create the output folder if it doesn't exist
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
@@ -194,7 +268,13 @@ def resize_and_save_images(input_folder, output_folder, file_list, target_size=(
         cv2.imwrite(os.path.join(output_folder, filename), resized_img)
 
 def augment_image_randomly(image_path):
-    """Apply a randomly selected augmentation (crop, rotate, or color change) with higher dynamic parameters to an image."""
+    '''
+    Apply a randomly selected augmentation (crop, rotate, or color change) with higher dynamic parameters to an image.
+
+    image_path: path to the image to augment
+
+    return: augmented image
+    '''
     image = Image.open(image_path)
     image_np = np.array(image)
 
@@ -213,6 +293,15 @@ def augment_image_randomly(image_path):
     return Image.fromarray(image_aug)
 
 def balance_dataset(train_files, train_labels, dataset_path):
+    '''
+    Balance the dataset by augmenting the images in the minority classes.
+
+    train_files: list of file names in the training set
+    train_labels: list of labels corresponding to the training files
+    dataset_path: path to the folder containing the dataset
+
+    return: train_files_augmented, train_labels_augmented
+    '''
     # Count occurrences of each class
     label_counts = Counter(train_labels)
     max_count = max(label_counts.values())
@@ -233,11 +322,14 @@ def balance_dataset(train_files, train_labels, dataset_path):
     # To keep track of which images have been augmented
     already_augmented = set()
 
+    # Loop through each class and augment
     for label, count in label_counts.items():
+        # Check if the class is already balanced
         if count < max_count:
             augmentations_needed = max_count - count
             files_for_label = [f for f, l in zip(train_files, train_labels) if l == label]
 
+            # Loop through the files for this label
             for file_path in files_for_label:
                 if augmentations_needed == 0:
                     break
@@ -312,10 +404,10 @@ input_folder = "Stanford40/JPEGImages"
 output_folder_train = "photo_dataset/train"
 output_folder_test = "photo_dataset/test"
 
-# Resize and save train images TRAIN
+# Resize and save train images (train)
 resize_and_save_images(input_folder, output_folder_train, train_files)
 
-# Resize and save test images TEST
+# Resize and save test images (test)
 resize_and_save_images(input_folder, output_folder_test, test_files)
 
 # Balance the dataset
@@ -325,7 +417,7 @@ if settings.DATA_ANALYSIS:
     # Check the distribution of the augmented dataset
     print("Distribution after augmentation: ")
     train_distribution_augmented, _ = check_distribution(train_files_augmented + train_files, train_labels_augmented + train_labels, test_files, test_labels)
-    #print the size of the augmented dataset
+    # Print the size of the augmented dataset
     print(f"Size of the augmented dataset: {len(train_files_augmented)}")
     plot_distribution(train_distribution_augmented, test_distribution, "standfor40_augmented_class_distribution")
 

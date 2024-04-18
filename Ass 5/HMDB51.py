@@ -9,6 +9,13 @@ import numpy as np
 
 # HMDB51 DATASET
 def create_hmdb51_splits(keep_hmdb51):
+    '''
+    Create train and test splits for the HMDB51 dataset
+
+    keep_hmdb51: list of classes to keep
+
+    return: train_files, train_labels, test_files, test_labels
+    '''
     for files in os.listdir('video_data'):
         foldername = files.split('.')[0]
         if foldername in keep_hmdb51:
@@ -54,6 +61,15 @@ def create_hmdb51_splits(keep_hmdb51):
     return train_files, train_labels, test_files, test_labels
 
 def plot_distribution(train_labels, test_labels, keep_hmdb51):
+    '''
+    Plot the distribution of classes in the HMDB51 dataset
+
+    train_labels: list of labels for the training set
+    test_labels: list of labels for the test set
+    keep_hmdb51: list of classes to keep
+
+    return: None
+    '''
     # Check if the distribution file already exists
     if os.path.exists("plots/dataset_distributions/hmdb51_distribution.png"):
         print("Distribution file already exists. Skipping the plotting.")
@@ -62,6 +78,7 @@ def plot_distribution(train_labels, test_labels, keep_hmdb51):
     train_counter = Counter(train_labels)
     test_counter = Counter(test_labels)
 
+    # Print the distribution of classes
     print("Train Data:")
     for class_name in keep_hmdb51:
         print(f"{class_name}: {train_counter[class_name]}")
@@ -89,14 +106,28 @@ def plot_distribution(train_labels, test_labels, keep_hmdb51):
     plt.savefig("plots/dataset_distributions/hmdb51_distribution.png")
 
 def check_video_length(train_files, train_labels, test_files, test_labels, keep_hmdb51):
+    '''
+    Check the video length distribution in the HMDB51 dataset
+
+    train_files: list of training video filenames
+    train_labels: list of training video labels
+    test_files: list of test video filenames
+    test_labels: list of test video labels
+    keep_hmdb51: list of classes to keep
+
+    return: None
+    '''
     # Check if the video lenght file already exists
     if os.path.exists("plots/dataset_distributions/hmdb51_video_length_distribution.png"):
         print("Video lenght file already exists. Skipping the plotting.")
         return
+    # Counting video lengths for each class
     train_video_lengths = {class_name: [] for class_name in keep_hmdb51}
     test_video_lengths = {class_name: [] for class_name in keep_hmdb51}
     shortest_video = float('inf')
     shortest_video_path = None
+
+    # Iterate through all videos and count the number of frames (train set)
     for video_file, label in zip(train_files, train_labels):
         video_path = os.path.join('video_data', label, video_file)
         cap = cv2.VideoCapture(video_path)
@@ -105,7 +136,8 @@ def check_video_length(train_files, train_labels, test_files, test_labels, keep_
         if length < shortest_video:
             shortest_video = length
             shortest_video_path = video_path
-
+    
+    # Iterate through all videos and count the number of frames (test set)
     for video_file, label in zip(test_files, test_labels):
         video_path = os.path.join('video_data', label, video_file)
         cap = cv2.VideoCapture(video_path)
@@ -142,13 +174,26 @@ def check_video_length(train_files, train_labels, test_files, test_labels, keep_
         f.write(f"\nShortest video path: {shortest_video_path}")
 
 def check_frame_size(train_files, train_labels, test_files, test_labels, keep_hmdb51):
+    '''
+    Check the frame size distribution in the HMDB51 dataset
+
+    train_files: list of training video filenames
+    train_labels: list of training video labels
+    test_files: list of test video filenames
+    test_labels: list of test video labels
+    keep_hmdb51: list of classes to keep
+
+    return: None
+    '''
     # Check if the frame size file already exists
     if os.path.exists("plots/dataset_distributions/hmdb51_frame_size_distribution.png"):
         print("Frame size file already exists. Skipping the plotting.")
         return
+    # Counting frame sizes for each class
     train_frame_sizes = {class_name: [] for class_name in keep_hmdb51}
     test_frame_sizes = {class_name: [] for class_name in keep_hmdb51}
 
+    # Iterate through all videos and count the frame sizes (train set)
     for video_file, label in zip(train_files, train_labels):
         video_path = os.path.join('video_data', label, video_file)
         cap = cv2.VideoCapture(video_path)
@@ -157,6 +202,7 @@ def check_frame_size(train_files, train_labels, test_files, test_labels, keep_hm
             height, width, _ = frame.shape
             train_frame_sizes[label].append((height, width))
 
+    # Iterate through all videos and count the frame sizes (test set)
     for video_file, label in zip(test_files, test_labels):
         video_path = os.path.join('video_data', label, video_file)
         cap = cv2.VideoCapture(video_path)
@@ -189,6 +235,14 @@ def check_frame_size(train_files, train_labels, test_files, test_labels, keep_hm
     plt.savefig("plots/dataset_distributions/hmdb51_frame_size_distribution.png")
 
 def extract_frames(video_path, output_folder):
+    '''
+    Extract frames from a video at specified indices and save them to a folder
+
+    video_path: path to the video file
+    output_folder: path to the folder to save the frames
+
+    return: None
+    '''
     # Open the video file
     video_capture = cv2.VideoCapture(video_path)
     
@@ -217,6 +271,14 @@ def extract_frames(video_path, output_folder):
     video_capture.release()
 
 def get_images_from_video(input_folder, output_root):
+    '''
+    Get images from videos in the input folder and save them in the output folder
+
+    input_folder: path to the folder containing videos
+    output_root: path to the root folder to save the images
+
+    return: None
+    '''
     # Iterate through all files and folders in input folder
     for root, dirs, files in os.walk(input_folder):
         for file in files:
@@ -227,7 +289,17 @@ def get_images_from_video(input_folder, output_root):
                 extract_frames(video_path, output_folder)
 
 def extract_optical_flow_and_save(video_path, output_folder):
+    '''
+    Extract optical flow images from a video and save them to a folder
+
+    video_path: path to the video file
+    output_folder: path to the folder to save the optical flow images
+
+    return: None
+    '''
+    # Open the video file
     cap = cv2.VideoCapture(video_path)
+    # Get the total number of frames in the video
     frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
     os.makedirs(output_folder, exist_ok=True)
@@ -239,14 +311,19 @@ def extract_optical_flow_and_save(video_path, output_folder):
     else:
         print(f"Extracting optical flow images for {video_path}")
 
+    # Check if the video has less than 16 frames
     if frame_count < 16:
         print("#" * 200)
         print(f"Video {video_path} has less than 16 frames.")
+
+    # Calculate the middle frame, first frame, last frame, and step size
     middle_frame = frame_count // 2
     first_frame = middle_frame - 8
     last_frame = middle_frame + 8
     step_size = 1
+    # Initialize the array to store the optical flow images
     vid_flows = np.empty((2, 16, 112, 112))
+    # Iterate through the frames and calculate the optical flow
     for i, idx in enumerate(range(first_frame, last_frame, step_size)):  # Extract 16 evenly spaced frames
         if i > 15:
             break
@@ -261,17 +338,14 @@ def extract_optical_flow_and_save(video_path, output_folder):
             break
 
         # Resize the images to 72x72
-        frame1_gray = cv2.resize(frame1, (112, 112), interpolation=cv2.INTER_AREA)
-        frame2_gray = cv2.resize(frame2, (112, 112), interpolation=cv2.INTER_AREA)
+        frame1_gray = cv2.resize(frame1, (72, 72), interpolation=cv2.INTER_AREA)
+        frame2_gray = cv2.resize(frame2, (72, 72), interpolation=cv2.INTER_AREA)
 
         frame1_gray = cv2.cvtColor(frame1_gray, cv2.COLOR_BGR2GRAY)
         frame2_gray = cv2.cvtColor(frame2_gray, cv2.COLOR_BGR2GRAY)
 
         # Calculate optical flow
         flow = cv2.calcOpticalFlowFarneback(frame1_gray, frame2_gray, None, 0.5, 3, 15, 3, 5, 1.2, 0)
-
-        # Visualize the optical flow
-        # cv2.imwrite('Optical Flow.png', draw_flow(frame1_gray, flow))
 
         vid_flows[0, i] = flow[..., 0]
         vid_flows[1, i] = flow[..., 1]

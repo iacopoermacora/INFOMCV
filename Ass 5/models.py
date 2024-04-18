@@ -8,21 +8,6 @@ import settings
 
 # 1. Stanford 40 – Frames: Create a CNN and train it on the images in Stanford 40. Naturally, you will have 12 output classes.
 
-'''def Stanford40_model(num_classes=12, dropout_prob=0.5): # TODO: Change this to a class
-    # Load the pre-trained ResNet-50 model
-    model = models.resnet50(weights='ResNet50_Weights.DEFAULT')
-    
-    # Modify the output layer to have num_classes classes
-    num_ftrs = model.fc.in_features
-    # Create a new Sequential model for the classifier
-    # It includes a Dropout layer followed by the final Linear layer
-    model.fc = nn.Sequential(
-        nn.Dropout(dropout_prob),  # Add dropout with a probability of dropout_prob
-        nn.Linear(num_ftrs, num_classes)
-    )
-    
-    return model'''
-
 class Stanford40_model(nn.Module):
     def __init__(self, num_classes=12, dropout_prob=0.5):
         super(Stanford40_model, self).__init__()
@@ -39,32 +24,6 @@ class Stanford40_model(nn.Module):
 
 # 2. HMDB51 – Frames (transfer learning): Use your pretrained CNN (same architecture/weights) and fine-tune it on the middle 
 #    frame of videos of the HMDB51 dataset. You can use a different learning rate than for the Stanford 40 network training.
-
-'''def HMDB51_Frame_Model(num_classes=12, dropout_prob=0.5): # TODO: Change this to a class
-    # Load the pre-trained stanford40 model from the standford40.pth file
-    model = models.resnet50(weights='ResNet50_Weights.DEFAULT')  # Change to the correct model architecture
-
-    # Modify the output layer to have num_classes classes
-    num_ftrs = model.fc.in_features
-    # Create a new Sequential model for the classifier
-    # It includes a Dropout layer followed by the final Linear layer
-    model.fc = nn.Sequential(
-        nn.Dropout(dropout_prob),  # Add dropout with a probability of dropout_prob
-        nn.Linear(num_ftrs, num_classes)
-    )
-
-    # Load the pre-trained Stanford40 model state dictionary
-    state_dict = torch.load('Stanford40_model_dynamic.pth')
-    model.load_state_dict(state_dict)
-
-    freeze = True
-    for name, param in model.named_parameters():
-        if freeze and 'layer4' not in name:  # Change 'bottleneck.162' accordingly
-            param.requires_grad = False
-        else:
-            freeze = False
-    
-    return model'''
 
 class HMDB51_Frame_Model(nn.Module):
     def __init__(self, num_classes=12, dropout_prob=0.5):

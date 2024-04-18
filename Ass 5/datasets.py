@@ -9,13 +9,12 @@ import torch
 # Custom dataset class for Stanford40 dataset
 class Stanford40_Dataset(Dataset):
     def __init__(self, img_dir, file_paths, labels, transform=None):
-        """
-        Args:
-            img_dir (string): Path to the image directory.
-            file_paths (list): List of file paths relative to img_dir.
-            labels (list): List of labels corresponding to each file path.
-            transform (callable, optional): Optional transform to be applied on a sample.
-        """
+        '''
+        img_dir: directory containing the images
+        file_paths: list of file paths for the images
+        labels: list of labels for the images
+        transform: torchvision.transforms object to apply transformations to the images
+        '''
         self.img_dir = img_dir
         self.file_paths = file_paths
         self.labels = labels
@@ -55,6 +54,13 @@ class Stanford40_Dataset(Dataset):
 # Custom dataset class for HMDB51 dataset (images)
 class HMDB51_Frame_Dataset(Dataset):
     def __init__(self, files, labels, root_dir, frame_number, transform=None):
+        '''
+        files: list of video filenames
+        labels: list of labels for the videos
+        root_dir: root directory containing the video frames
+        frame_number: frame number to extract from each video
+        transform: torchvision.transforms object to apply transformations to the images
+        '''
         self.files = files
         self.labels = labels
         self.label_map = {
@@ -105,6 +111,11 @@ class HMDB51_Frame_Dataset(Dataset):
 # Custom dataset class for HMDB51 dataset (optical flow)
 class HMDB51_OF_Dataset(Dataset):
     def __init__(self, file_paths, labels, root_dir):
+        '''
+        file_paths: list of optical flow file paths
+        labels: list of labels for the optical flow files
+        root_dir: root directory containing the optical flow files
+        '''
         self.file_paths = file_paths
         self.labels = labels
         self.label_map = {
@@ -139,6 +150,14 @@ class HMDB51_OF_Dataset(Dataset):
 
 class HMDB51_Fusion_Dataset(Dataset):
     def __init__(self, files, labels, frames_root_dir, frame_number, optical_flow_root_dir, transform=None):
+        '''
+        files: list of video filenames
+        labels: list of labels for the videos
+        frames_root_dir: root directory containing the video frames
+        frame_number: frame number to extract from each video
+        optical_flow_root_dir: root directory containing the optical flow data
+        transform: torchvision.transforms object to apply transformations to the images
+        '''
         self.files = files
         self.labels = labels
         self.label_map = {

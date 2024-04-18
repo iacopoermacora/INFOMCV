@@ -8,17 +8,29 @@ import settings
 import itertools
 
 def test_model(model, test_loader, scheduler_type, device='cpu'):
+    '''
+    Test the model on the test set and calculate the accuracy
+
+    model: model to test
+    test_loader: DataLoader object containing the test data
+    scheduler_type: type of scheduler used during training
+    device: device to run the model on
+
+    return: accuracy of the model on the test set
+    '''
     model = model.to(device)
-    #model.load_state_dict(torch.load(f'models/{model.__class__.__name__}.pth')
     model.eval()  # Set the model to evaluation mode
 
+    # Lists to store the predictions and labels
     all_preds = []
     all_labels = []
 
-    with torch.no_grad():  # No need to track gradients
+    with torch.no_grad():
         correct = 0
         total = 0
+        # Iterate over the test data
         for data in tqdm(test_loader):
+            # Check if the data contains data for the fusion model and extract the data accordingly
             if len(data) == 3:
                 photos, flows, labels = data
                 outputs = model(photos, flows)
@@ -29,6 +41,7 @@ def test_model(model, test_loader, scheduler_type, device='cpu'):
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
 
+            # Append the predictions and labels to the lists
             all_preds.extend(predicted.view(-1).cpu().numpy())
             all_labels.extend(labels.view(-1).cpu().numpy())
 
@@ -44,13 +57,21 @@ def test_model(model, test_loader, scheduler_type, device='cpu'):
     plt.savefig(f'plots/{model.__class__.__name__}/CM/Test_CM_{model.__class__.__name__}_{scheduler_type}.png')
     plt.show()
 
-
     return accuracy, cm
 
 def plot_confusion_matrix(model_name, cm, classes, scheduler_type, title='Confusion matrix', cmap=plt.cm.Blues):
-    """
-    This function prints and plots the confusion matrix.
-    """
+    '''
+    Plot the confusion matrix and save it
+
+    model_name: name of the model
+    cm: confusion matrix
+    classes: list of class names
+    scheduler_type: type of scheduler used during training
+    title: title of the plot
+    cmap: color map to use for the plot
+
+    return: None
+    '''
     plt.figure(figsize=(10, 10))
     plt.imshow(cm, interpolation='nearest', cmap=cmap)
     plt.title(title)
@@ -74,6 +95,18 @@ def plot_confusion_matrix(model_name, cm, classes, scheduler_type, title='Confus
     plt.close()
 
 def plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies, model_name, scheduler_type):
+    '''
+    Plot the training and validation losses and accuracies and save the plot
+
+    train_losses: list of training losses
+    val_losses: list of validation losses
+    train_accuracies: list of training accuracies
+    val_accuracies: list of validation accuracies
+    model_name: name of the model
+    scheduler_type: type of scheduler used during training
+
+    return: None
+    '''
     epochs = range(1, len(train_losses) + 1)
     
     plt.figure(figsize=(12, 5))

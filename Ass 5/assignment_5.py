@@ -33,7 +33,6 @@ if not os.path.exists(f'Stanford40_model_{settings.LR_SCHEDULER_TYPE["Stanford40
     # Create custom dataset
     # Initialize the datasets
     train_dataset = Stanford40_Dataset(img_dir='photo_dataset/train', file_paths=train_files, labels=train_labels, transform=ToTensor())
-    test_dataset = Stanford40_Dataset(img_dir='photo_dataset/test', file_paths=test_files, labels=test_labels, transform=ToTensor())
 
     # Split the training dataset into training and validation
     validation_split = 0.15
@@ -45,7 +44,6 @@ if not os.path.exists(f'Stanford40_model_{settings.LR_SCHEDULER_TYPE["Stanford40
     # Setup the DataLoader for each split
     train_loader = DataLoader(train_data, batch_size=32, shuffle=True)
     validation_loader = DataLoader(validation_data, batch_size=32, shuffle=False)
-    test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
     print("Data loaders created successfully.")
 
     # FIRST MODEL
@@ -54,7 +52,7 @@ if not os.path.exists(f'Stanford40_model_{settings.LR_SCHEDULER_TYPE["Stanford40
     model_name = "Stanford40_model"
     criteria = nn.CrossEntropyLoss()
 
-    # set learning rate scheduler that decreases the learning rate by a factor of 0.5 every 5 epochs or cyclitic learning rate
+    # Set the learning rate scheduler (or fixed) based on the settings
     if (settings.LR_SCHEDULER_TYPE["Stanford40"]) == 'dynamic':
         optimizer = optim.Adam(model.parameters(), lr=0.001)
         # Use StepLR for dynamic learning rate adjustments
@@ -104,7 +102,6 @@ if not os.path.exists(f'HMDB51_Frame_Model_{settings.LR_SCHEDULER_TYPE["HMDB51_F
     # Choose frame number between 0, 25, 50, 75, 100
     frame_number = 50
     train_dataset = HMDB51_Frame_Dataset(train_files, train_labels, "video_image_dataset", frame_number, transform=ToTensor())
-    test_dataset = HMDB51_Frame_Dataset(test_files, test_labels, "video_image_dataset", frame_number, transform=ToTensor())
 
     # Split the training dataset into training and validation
     validation_split = 0.15
@@ -116,7 +113,6 @@ if not os.path.exists(f'HMDB51_Frame_Model_{settings.LR_SCHEDULER_TYPE["HMDB51_F
     # Setup the DataLoader for each split
     train_loader = DataLoader(train_data, batch_size=32, shuffle=True)
     validation_loader = DataLoader(validation_data, batch_size=32, shuffle=False)
-    test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
     print("Data loaders created successfully.")
 
     # SECOND MODEL
@@ -125,7 +121,7 @@ if not os.path.exists(f'HMDB51_Frame_Model_{settings.LR_SCHEDULER_TYPE["HMDB51_F
     model_name = "HMDB51_Frame_Model"
     criteria = nn.CrossEntropyLoss()
 
-    # set learning rate scheduler that decreases the learning rate by a factor of 0.5 every 5 epochs or cyclitic learning rate
+    # Set the learning rate scheduler (or fixed) based on the settings
     if (settings.LR_SCHEDULER_TYPE["HMDB51_Frames"]) == 'dynamic':
         optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=0.0001)
         # Use StepLR for dynamic learning rate adjustments
@@ -181,12 +177,10 @@ if not os.path.exists(f'HMDB51_OF_Model_{settings.LR_SCHEDULER_TYPE["HMDB51_OF"]
     # Create custom dataset
     train_dataset = HMDB51_OF_Dataset(train_files, train_labels, root_dir="video_OF_dataset")
     val_dataset = HMDB51_OF_Dataset(val_files, val_labels, root_dir="video_OF_dataset")
-    test_dataset = HMDB51_OF_Dataset(test_files, test_labels, root_dir="video_OF_dataset")
 
     # Setup the DataLoader for each split
     train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
     validation_loader = DataLoader(val_dataset, batch_size=64, shuffle=False)
-    test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
     print("Data loaders created successfully.")
 
     # THIRD MODEL
@@ -195,7 +189,7 @@ if not os.path.exists(f'HMDB51_OF_Model_{settings.LR_SCHEDULER_TYPE["HMDB51_OF"]
     model_name = "HMDB51_OF_Model"
     criteria = nn.CrossEntropyLoss()
 
-    # set learning rate scheduler that decreases the learning rate by a factor of 0.5 every 5 epochs or cyclitic learning rate
+    # Set the learning rate scheduler (or fixed) based on the settings
     if (settings.LR_SCHEDULER_TYPE["HMDB51_OF"]) == 'dynamic':
         optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=0.0001)
         # Use StepLR for dynamic learning rate adjustments
@@ -249,12 +243,10 @@ if not os.path.exists(f'HMDB51_Fusion_Model_{settings.LR_SCHEDULER_TYPE["HMDB51_
     # Create custom dataset
     train_dataset = HMDB51_Fusion_Dataset(train_files, train_labels, frames_root_dir="video_image_dataset", frame_number=50, optical_flow_root_dir="video_OF_dataset", transform=ToTensor())
     val_dataset = HMDB51_Fusion_Dataset(val_files, val_labels, frames_root_dir="video_image_dataset", frame_number=50, optical_flow_root_dir="video_OF_dataset", transform=ToTensor())
-    test_dataset = HMDB51_Fusion_Dataset(test_files, test_labels, frames_root_dir="video_image_dataset", frame_number=50, optical_flow_root_dir="video_OF_dataset", transform=ToTensor())
 
     # Setup the DataLoader for each split
     train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
     validation_loader = DataLoader(val_dataset, batch_size=64, shuffle=False)
-    test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
     print("Data loaders created successfully.")
 
     # FOURTH MODEL
@@ -263,7 +255,7 @@ if not os.path.exists(f'HMDB51_Fusion_Model_{settings.LR_SCHEDULER_TYPE["HMDB51_
     model_name = "HMDB51_Fusion_Model"
     criteria = nn.CrossEntropyLoss()
 
-    # set learning rate scheduler that decreases the learning rate by a factor of 0.5 every 5 epochs or cyclitic learning rate
+    # Set the learning rate scheduler (or fixed) based on the settings
     if (settings.LR_SCHEDULER_TYPE["HMDB51_Fusion"]) == 'dynamic':
         optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=0.0001)
         # Use StepLR for dynamic learning rate adjustments
