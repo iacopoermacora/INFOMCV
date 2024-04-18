@@ -100,7 +100,7 @@ def train_and_validate(model, model_name, train_loader, validation_loader, optim
         cm = confusion_matrix(all_true, all_preds)
         plot_confusion_matrix(model_name, cm, classes, scheduler_type, title=f'{epoch}', cmap=plt.cm.Blues)
         # Plot the training and validation losses and accuracies
-        plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies, model_name, 'Fixed LR')
+        plot_metrics(train_losses, val_losses, train_accuracies, val_accuracies, model_name, scheduler_type)
 
     # Plot the learning rate
     plot_learning_rate(learning_rates, scheduler_type, model_name)
